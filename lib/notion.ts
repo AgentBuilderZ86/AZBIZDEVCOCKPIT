@@ -136,11 +136,18 @@ function writeTitle(value: string) {
   return { title: [{ type: "text" as const, text: { content: value } }] };
 }
 
+/** Notion plafonne chaque objet rich_text à 2000 caractères → on découpe. */
 function writeRichText(value: string) {
+  if (!value) return { rich_text: [] };
+  const chunks: string[] = [];
+  for (let i = 0; i < value.length; i += 2000) {
+    chunks.push(value.slice(i, i + 2000));
+  }
   return {
-    rich_text: value
-      ? [{ type: "text" as const, text: { content: value } }]
-      : [],
+    rich_text: chunks.map((content) => ({
+      type: "text" as const,
+      text: { content },
+    })),
   };
 }
 
