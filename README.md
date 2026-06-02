@@ -4,8 +4,9 @@ Application web (Next.js 14 / App Router + TypeScript + Tailwind + shadcn/ui) qu
 portefeuille de comptes BizDev d'Adil Zriouil, avec **Notion comme source de vérité**
 (lecture + écriture via l'API officielle `@notionhq/client`).
 
-> État actuel : **Phases 0 → 3** livrées (scaffold, plan de comptes éditable, vue 360,
-> enrichissement Apollo + Claude). Phases 4-5 (scoring continu via cron, PDF) à venir.
+> État actuel : **Phases 0 → 5** livrées (scaffold, plan de comptes éditable, vue 360,
+> enrichissement Apollo + Claude, scoring continu planifié, rapports PDF).
+> Déploiement cible : **Netlify** (runtime Next.js officiel + Scheduled Functions).
 
 ## Fonctionnalités
 
@@ -36,6 +37,21 @@ portefeuille de comptes BizDev d'Adil Zriouil, avec **Notion comme source de vé
   n'est appliqué en silence. Write-back via `PUT /api/comptes/[id]/enrich`.
 - Dégradation propre : si Apollo ou Claude échoue (réseau, crédits), un avertissement est
   affiché et le reste de la proposition reste applicable.
+
+### Phase 4 — Scoring continu (Netlify Scheduled Function)
+- `lib/scoring.ts` : Score AdilStar **heuristique** (déterministe, sans appel externe →
+  fiable et gratuit sur cron) à partir de Stage, Priorité, Effectif, ARR, Statut.
+- `app/api/cron/refresh` : recalcule les scores des comptes non dormants, write-back Notion
+  si changement. **Protégé par `CRON_SECRET`** (Bearer ou `?key=`).
+- `netlify/functions/scheduled-refresh.mts` : Scheduled Function Netlify (cron `0 6 * * *`)
+  qui déclenche la route avec le secret.
+
+### Phase 5 — Rapports & Focus compte (PDF)
+- **Focus compte** (`/api/compte/[id]/pdf`) : one-pager — entête, KPIs, Next Best Action,
+  plan stratégique, contacts clés, signaux. Bouton « Focus PDF » sur la fiche 360.
+- **Rapport portefeuille** (`/api/rapport/pdf`) : KPIs globaux, répartition secteur/stage,
+  top comptes par score, dormants/à risque. Bouton sur l'accueil.
+- Génération via `@react-pdf/renderer` (serveur), charte Sia/AZ (`lib/pdf/`).
 
 ## Architecture
 
@@ -89,11 +105,20 @@ npm run build    # build de production
 > **Note environnement d'exécution distant** : dans le sandbox Claude Code on the web, la
 > politique réseau peut ne pas autoriser `api.notion.com` (« Host not in allowlist »). Les pages
 > s'affichent alors avec un message d'erreur propre. Les appels Notion fonctionnent en local
-> (réseau ouvert) et sur **Vercel**. Pour tester depuis le sandbox, ajouter `api.notion.com` à
-> l'allowlist réseau de l'environnement.
+> (réseau ouvert) et sur **Netlify**. Pour tester depuis le sandbox, ajouter `api.notion.com`
+> à l'allowlist réseau de l'environnement.
 
-## Déploiement (Vercel)
+## Déploiement (Netlify)
 
-1. Importer le repo sur Vercel.
-2. Renseigner toutes les variables d'environnement (cf. `.env.example`).
-3. Deploy — les routes API Next.js servent de backend, aucun serveur séparé.
+1. **Connecter le repo** à Netlify (New site from Git). `netlify.toml` configure déjà le
+   build (`npm run build`) et le runtime Next.js (`@netlify/plugin-nextjs`).
+2. **Variables d'environnement** : Site settings → Environment variables — renseigner
+   `NOTION_TOKEN`, `NOTION_DB_*`, `APOLLO_API_KEY`, `ANTHROPIC_API_KEY`, `CRON_SECRET`
+   (cf. `.env.example`). Ne pas committer `.env.local`.
+3. **Deploy** — les routes API Next.js servent de backend (aucun serveur séparé).
+4. **Scheduled Function** : `netlify/functions/scheduled-refresh.mts` s'enregistre
+   automatiquement (cron `0 6 * * *`) et déclenche le recalcul des scores. Ajuster le
+   `schedule` dans le fichier si besoin.
+
+> ⚠️ Prérequis runtime : partager les bases Notion avec l'intégration `NOTION_TOKEN` ;
+> disposer de crédits Anthropic actifs pour l'enrichissement Claude.

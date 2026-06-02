@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, ExternalLink, Zap } from "lucide-react";
+import { ArrowLeft, ExternalLink, FileDown, Zap } from "lucide-react";
 import { getCompte360 } from "@/lib/notion";
 import { computeNextBestAction } from "@/lib/next-best-action";
 import { Badge } from "@/components/ui/badge";
@@ -87,7 +87,14 @@ export default async function ComptePage({ params }: { params: { id: string } })
             )}
           </div>
         </div>
-        <EnrichDialog compteId={compte.id} />
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline" size="sm">
+            <a href={`/api/compte/${compte.id}/pdf`} target="_blank" rel="noreferrer">
+              <FileDown className="h-4 w-4" /> Focus PDF
+            </a>
+          </Button>
+          <EnrichDialog compteId={compte.id} />
+        </div>
       </header>
 
       {/* Firmo / KPIs */}
