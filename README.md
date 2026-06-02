@@ -29,10 +29,12 @@ portefeuille de comptes BizDev d'Adil Zriouil, avec **Notion comme source de vé
 
 ### Phase 3 — Enrichissement « Populer »
 - Bouton **Enrichir** sur la fiche compte → orchestration serveur :
-  1. **Apollo.io** (REST) → firmographie (effectif, CA) + décideurs clés.
-  2. **Claude** (`claude-opus-4-8`, adaptive thinking + structured outputs) → Score AdilStar,
+  1. **Apollo.io** (REST) → firmographie (effectif, CA) + décideurs (plan payant requis).
+  2. **Hunter.io** (Domain Search) → décideurs **avec emails** (par nom ou domaine). Optionnel
+     (`HUNTER_API_KEY`), complémentaire d'Apollo.
+  3. **Claude** (`claude-opus-4-8`, adaptive thinking + structured outputs) → Score AdilStar,
      plan stratégique v1, signaux suggérés.
-  3. Déduplication des contacts (email / LinkedIn / nom).
+  4. Déduplication des contacts (email / LinkedIn / nom) entre toutes les sources.
 - **Diff à valider** : l'utilisateur coche les champs / contacts / signaux à écrire ; rien
   n'est appliqué en silence. Write-back via `PUT /api/comptes/[id]/enrich`.
 - Dégradation propre : si Apollo ou Claude échoue (réseau, crédits), un avertissement est
@@ -88,7 +90,7 @@ cp .env.example .env.local
 |----------|------|
 | `NOTION_TOKEN` | Token de l'intégration Notion (interne) |
 | `NOTION_DB_COMPTES` … | IDs des 7 bases Notion |
-| `APOLLO_API_KEY`, `EXPLORIUM_API_KEY`, `ANTHROPIC_API_KEY` | Réservés aux phases d'enrichissement |
+| `APOLLO_API_KEY`, `HUNTER_API_KEY`, `EXPLORIUM_API_KEY`, `ANTHROPIC_API_KEY` | Enrichissement (Apollo, Hunter, Claude) |
 
 > ⚠️ **Partage Notion requis** : l'intégration liée à `NOTION_TOKEN` doit être ajoutée comme
 > connexion sur la page **★ Adil BizDev OS** (ou directement sur chaque base) dans Notion,
@@ -113,7 +115,7 @@ npm run build    # build de production
 1. **Connecter le repo** à Netlify (New site from Git). `netlify.toml` configure déjà le
    build (`npm run build`) et le runtime Next.js (`@netlify/plugin-nextjs`).
 2. **Variables d'environnement** : Site settings → Environment variables — renseigner
-   `NOTION_TOKEN`, `NOTION_DB_*`, `APOLLO_API_KEY`, `ANTHROPIC_API_KEY`, `CRON_SECRET`
+   `NOTION_TOKEN`, `NOTION_DB_*`, `APOLLO_API_KEY`, `HUNTER_API_KEY`, `ANTHROPIC_API_KEY`, `CRON_SECRET`
    (cf. `.env.example`). Ne pas committer `.env.local`.
 3. **Deploy** — les routes API Next.js servent de backend (aucun serveur séparé).
 4. **Scheduled Function** : `netlify/functions/scheduled-refresh.mts` s'enregistre
