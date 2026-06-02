@@ -3,9 +3,9 @@ import { integrations } from "../config";
 
 /**
  * Client Apollo.io minimal (REST, server-only).
- * Tous les appels dégradent proprement (retour null + warning) si la clé est
- * absente, si le réseau est bloqué, ou si Apollo renvoie une erreur — l'objectif
- * est que l'enrichissement continue avec les autres sources.
+ * Les appels renvoient { data, error } : `error` porte la cause précise (statut
+ * HTTP + message Apollo) afin d'être affichée dans le diff d'enrichissement.
+ * L'enrichissement continue malgré une erreur Apollo (les autres sources restent).
  */
 
 const APOLLO_BASE = "https://api.apollo.io/api/v1";
@@ -27,9 +27,17 @@ export interface ApolloPerson {
   linkedin: string | null;
 }
 
-async function apolloFetch(path: string, body: unknown): Promise<any | null> {
+interface ApolloResult<T> {
+  data: T | null;
+  error: string | null;
+}
+
+async function apolloRequest(
+  path: string,
+  body: unknown
+): Promise<ApolloResult<any>> {
   const apiKey = integrations.apolloApiKey;
-  if (!apiKey) return null;
+  if (!apiKey) return { data: null, error: "Clé APOLLO_API_KEY absente." };
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -44,10 +52,34 @@ async function apolloFetch(path: string, body: unknown): Promise<any | null> {
       body: JSON.stringify(body),
       signal: controller.signal,
     });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch {
-    return null;
+
+    const text = await res.text();
+    if (!res.ok) {
+      let msg = text.slice(0, 200);
+      try {
+        const j = JSON.parse(text);
+        msg = j.error ?? j.message ?? j.error_message ?? msg;
+      } catch {
+        /* texte brut */
+      }
+      const hint =
+        res.status === 401
+          ? " (clé invalide)"
+          : res.status === 403
+          ? " (accès API non inclus dans le plan Apollo, ou endpoint réservé à un plan supérieur)"
+          : "";
+      return { data: null, error: `Apollo ${res.status}: ${msg}${hint}` };
+    }
+
+    return { data: JSON.parse(text), error: null };
+  } catch (err) {
+    const reason =
+      err instanceof Error && err.name === "AbortError"
+        ? "timeout"
+        : err instanceof Error
+        ? err.message
+        : "erreur réseau";
+    return { data: null, error: `Apollo injoignable (${reason}).` };
   } finally {
     clearTimeout(timer);
   }
@@ -61,33 +93,40 @@ function formatRevenue(value: unknown): string | null {
   return `${Math.round(n)} $`;
 }
 
-/** Recherche la firmographie d'une organisation par nom (puis domaine). */
+/** Firmographie d'une organisation par nom. */
 export async function enrichOrganization(
   name: string
-): Promise<ApolloFirmographics | null> {
-  const data = await apolloFetch("/mixed_companies/search", {
+): Promise<ApolloResult<ApolloFirmographics>> {
+  const { data, error } = await apolloRequest("/mixed_companies/search", {
     q_organization_name: name,
     page: 1,
     per_page: 1,
   });
+  if (error) return { data: null, error };
+
   const org = data?.organizations?.[0] ?? data?.accounts?.[0];
-  if (!org) return null;
+  if (!org)
+    return { data: null, error: `Aucune entreprise trouvée pour « ${name} ».` };
+
   return {
-    domain: org.primary_domain ?? org.website_url ?? null,
-    effectif:
-      typeof org.estimated_num_employees === "number"
-        ? org.estimated_num_employees
-        : null,
-    caEstime: formatRevenue(org.annual_revenue ?? org.organization_revenue),
-    industrie: org.industry ?? null,
+    data: {
+      domain: org.primary_domain ?? org.website_url ?? null,
+      effectif:
+        typeof org.estimated_num_employees === "number"
+          ? org.estimated_num_employees
+          : null,
+      caEstime: formatRevenue(org.annual_revenue ?? org.organization_revenue),
+      industrie: org.industry ?? null,
+    },
+    error: null,
   };
 }
 
-/** Recherche des décideurs clés d'une organisation. */
+/** Décideurs clés d'une organisation. */
 export async function searchDecisionMakers(
   organizationName: string,
   domain: string | null
-): Promise<ApolloPerson[]> {
+): Promise<ApolloResult<ApolloPerson[]>> {
   const titles = [
     "CEO",
     "Chief Executive Officer",
@@ -106,14 +145,19 @@ export async function searchDecisionMakers(
   if (domain) body["q_organization_domains_list"] = [domain];
   else body["q_organization_name"] = organizationName;
 
-  const data = await apolloFetch("/mixed_people/search", body);
+  const { data, error } = await apolloRequest("/mixed_people/search", body);
+  if (error) return { data: null, error };
+
   const people: any[] = data?.people ?? [];
-  return people.map((p) => ({
-    nomComplet: p.name ?? `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim(),
-    prenom: p.first_name ?? "",
-    nom: p.last_name ?? "",
-    titre: p.title ?? "",
-    email: p.email && !/email_not_unlocked/i.test(p.email) ? p.email : null,
-    linkedin: p.linkedin_url ?? null,
-  }));
+  return {
+    data: people.map((p) => ({
+      nomComplet: p.name ?? `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim(),
+      prenom: p.first_name ?? "",
+      nom: p.last_name ?? "",
+      titre: p.title ?? "",
+      email: p.email && !/email_not_unlocked/i.test(p.email) ? p.email : null,
+      linkedin: p.linkedin_url ?? null,
+    })),
+    error: null,
+  };
 }

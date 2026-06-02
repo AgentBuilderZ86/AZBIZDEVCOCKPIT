@@ -37,16 +37,27 @@ export async function buildEnrichmentProposal(
   const warnings: string[] = [];
   const sources: string[] = [];
 
-  // 1. Firmographie + décideurs via Apollo (dégradation propre).
-  const firmo = await enrichOrganization(compte.compte);
-  let apolloPeople: Awaited<ReturnType<typeof searchDecisionMakers>> = [];
+  // 1. Firmographie + décideurs via Apollo (dégradation propre, cause remontée).
+  const firmoRes = await enrichOrganization(compte.compte);
+  const firmo = firmoRes.data;
+  let apolloPeople: ContactDraft[] = [];
   if (firmo) {
     sources.push("Apollo.io");
-    apolloPeople = await searchDecisionMakers(compte.compte, firmo.domain);
+    const peopleRes = await searchDecisionMakers(compte.compte, firmo.domain);
+    if (peopleRes.error) {
+      warnings.push(`Décideurs Apollo : ${peopleRes.error}`);
+    }
+    apolloPeople = (peopleRes.data ?? []).map((p) => ({
+      nomComplet: p.nomComplet,
+      prenom: p.prenom,
+      nom: p.nom,
+      titre: p.titre,
+      email: p.email,
+      linkedin: p.linkedin,
+      niveauInfluence: inferInfluence(p.titre),
+    }));
   } else {
-    warnings.push(
-      "Apollo indisponible ou sans résultat — firmographie/décideurs non enrichis."
-    );
+    warnings.push(`Firmographie Apollo : ${firmoRes.error}`);
   }
 
   // 2. Intelligence Claude (score + plan + signaux).
@@ -100,15 +111,7 @@ export async function buildEnrichmentProposal(
     )
       continue;
     existingNames.add(nameKey);
-    newContacts.push({
-      nomComplet: p.nomComplet,
-      prenom: p.prenom,
-      nom: p.nom,
-      titre: p.titre,
-      email: p.email,
-      linkedin: p.linkedin,
-      niveauInfluence: inferInfluence(p.titre),
-    });
+    newContacts.push(p);
   }
 
   // 5. Signaux suggérés, dédupliqués sur le titre.
