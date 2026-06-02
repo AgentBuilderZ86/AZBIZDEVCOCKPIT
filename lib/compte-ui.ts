@@ -14,27 +14,63 @@ export const SELECT_FIELDS = {
   statutRelation: { label: "Statut relation", options: STATUTS_RELATION },
 } as const;
 
-/** Couleur de badge (classes Tailwind) selon la valeur. */
-export function badgeClass(field: keyof typeof SELECT_FIELDS, value: string | null): string {
+/** Map global valeur → classes Tailwind (partagé comptes + entités liées). */
+const VALUE_COLORS: Record<string, string> = {
+  // Priorité compte
+  "🔴 Haute": "bg-red-100 text-red-800",
+  "🟡 Moyenne": "bg-yellow-100 text-yellow-800",
+  "🟢 Basse": "bg-green-100 text-green-800",
+  // Stage compte
+  Cold: "bg-slate-100 text-slate-700",
+  Warm: "bg-orange-100 text-orange-800",
+  Hot: "bg-red-100 text-red-800",
+  Active: "bg-blue-100 text-blue-800",
+  Won: "bg-green-100 text-green-800",
+  Lost: "bg-stone-200 text-stone-700",
+  // Statut relation
+  "À développer": "bg-orange-100 text-orange-800",
+  "À prospecter": "bg-sky-100 text-sky-800",
+  Dormante: "bg-gray-200 text-gray-600",
+  // Priorité engagement contact
+  "🔴 P1": "bg-red-100 text-red-800",
+  "🟡 P2": "bg-yellow-100 text-yellow-800",
+  "🟢 P3": "bg-green-100 text-green-800",
+  // Statut contact
+  Identifié: "bg-blue-100 text-blue-800",
+  "À identifier": "bg-gray-100 text-gray-700",
+  Contacté: "bg-orange-100 text-orange-800",
+  Engagé: "bg-green-100 text-green-800",
+  Inactif: "bg-stone-200 text-stone-700",
+  // Opp stages
+  Discovery: "bg-slate-100 text-slate-700",
+  Qualified: "bg-blue-100 text-blue-800",
+  Proposal: "bg-purple-100 text-purple-800",
+  Negotiation: "bg-orange-100 text-orange-800",
+  // Score signal
+  "5 - Critique": "bg-red-100 text-red-800",
+  "4 - Élevé": "bg-orange-100 text-orange-800",
+  "3 - Moyen": "bg-yellow-100 text-yellow-800",
+  "2 - Faible": "bg-blue-100 text-blue-800",
+  "1 - À surveiller": "bg-gray-100 text-gray-600",
+  // Statut signal
+  "À exploiter": "bg-orange-100 text-orange-800",
+  "En cours": "bg-blue-100 text-blue-800",
+  Exploité: "bg-green-100 text-green-800",
+  Archivé: "bg-gray-200 text-gray-600",
+};
+
+/** Couleur de badge selon une valeur (string libre). */
+export function valueBadgeClass(value: string | null | undefined): string {
   if (!value) return "bg-muted text-muted-foreground";
-  const map: Record<string, string> = {
-    // Priorité
-    "🔴 Haute": "bg-red-100 text-red-800",
-    "🟡 Moyenne": "bg-yellow-100 text-yellow-800",
-    "🟢 Basse": "bg-green-100 text-green-800",
-    // Stage
-    Cold: "bg-slate-100 text-slate-700",
-    Warm: "bg-orange-100 text-orange-800",
-    Hot: "bg-red-100 text-red-800",
-    Active: "bg-blue-100 text-blue-800",
-    Won: "bg-green-100 text-green-800",
-    Lost: "bg-stone-200 text-stone-700",
-    // Statut relation
-    "À développer": "bg-orange-100 text-orange-800",
-    "À prospecter": "bg-sky-100 text-sky-800",
-    Dormante: "bg-gray-200 text-gray-600",
-  };
-  return map[value] ?? "bg-indigo-100 text-indigo-800";
+  return VALUE_COLORS[value] ?? "bg-indigo-100 text-indigo-800";
+}
+
+/** Couleur de badge pour un champ select de compte. */
+export function badgeClass(
+  _field: keyof typeof SELECT_FIELDS,
+  value: string | null
+): string {
+  return valueBadgeClass(value);
 }
 
 /** Comparateur de tri pour une colonne donnée. */

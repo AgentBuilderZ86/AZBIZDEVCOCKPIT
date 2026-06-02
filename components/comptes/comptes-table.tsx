@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Archive, ArrowDown, ArrowUp, ExternalLink } from "lucide-react";
+import { Archive, ArrowDown, ArrowUp, ExternalLink, Eye } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -141,6 +141,17 @@ export function ComptesTable({ comptes, onUpdate, onArchive }: Props) {
               </TableCell>
               <TableCell>
                 <div className="flex items-center justify-end gap-1">
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    title="Vue 360"
+                  >
+                    <Link href={`/compte/${c.id}`}>
+                      <Eye className="h-4 w-4" />
+                    </Link>
+                  </Button>
                   <PlanStrategiqueEditor
                     compteName={c.compte}
                     value={c.planStrategique}
