@@ -5,7 +5,12 @@ import {
   createSignal,
   updateCompteFields,
 } from "./notion";
-import { enrichOrganization, searchDecisionMakers } from "./integrations/apollo";
+import {
+  enrichOrganization,
+  searchDecisionMakers,
+  type ApolloPerson,
+} from "./integrations/apollo";
+import { searchHunterContacts } from "./integrations/hunter";
 import { generateAccountIntelligence } from "./integrations/claude";
 import type {
   ContactDraft,
@@ -37,27 +42,26 @@ export async function buildEnrichmentProposal(
   const warnings: string[] = [];
   const sources: string[] = [];
 
-  // 1. Firmographie + décideurs via Apollo (dégradation propre, cause remontée).
+  // 1a. Firmographie + décideurs via Apollo (dégradation propre, cause remontée).
+  const people: ApolloPerson[] = [];
   const firmoRes = await enrichOrganization(compte.compte);
   const firmo = firmoRes.data;
-  let apolloPeople: ContactDraft[] = [];
   if (firmo) {
     sources.push("Apollo.io");
     const peopleRes = await searchDecisionMakers(compte.compte, firmo.domain);
-    if (peopleRes.error) {
-      warnings.push(`Décideurs Apollo : ${peopleRes.error}`);
-    }
-    apolloPeople = (peopleRes.data ?? []).map((p) => ({
-      nomComplet: p.nomComplet,
-      prenom: p.prenom,
-      nom: p.nom,
-      titre: p.titre,
-      email: p.email,
-      linkedin: p.linkedin,
-      niveauInfluence: inferInfluence(p.titre),
-    }));
+    if (peopleRes.error) warnings.push(`Décideurs Apollo : ${peopleRes.error}`);
+    else people.push(...(peopleRes.data ?? []));
   } else {
     warnings.push(`Firmographie Apollo : ${firmoRes.error}`);
+  }
+
+  // 1b. Contacts (avec emails) via Hunter.io — par domaine si Apollo l'a fourni.
+  const hunterRes = await searchHunterContacts(compte.compte, firmo?.domain ?? null);
+  if (hunterRes.error) {
+    warnings.push(`Contacts Hunter : ${hunterRes.error}`);
+  } else if (hunterRes.data && hunterRes.data.length > 0) {
+    sources.push("Hunter.io");
+    people.push(...hunterRes.data);
   }
 
   // 2. Intelligence Claude (score + plan + signaux).
@@ -99,7 +103,7 @@ export async function buildEnrichmentProposal(
     contacts.map((c) => c.nomComplet.toLowerCase().trim())
   );
   const newContacts: ContactDraft[] = [];
-  for (const p of apolloPeople) {
+  for (const p of people) {
     if (!p.nomComplet) continue;
     const emailKey = p.email?.toLowerCase();
     const linkedinKey = p.linkedin?.toLowerCase();
@@ -111,7 +115,17 @@ export async function buildEnrichmentProposal(
     )
       continue;
     existingNames.add(nameKey);
-    newContacts.push(p);
+    if (emailKey) existingEmails.add(emailKey);
+    if (linkedinKey) existingLinkedins.add(linkedinKey);
+    newContacts.push({
+      nomComplet: p.nomComplet,
+      prenom: p.prenom,
+      nom: p.nom,
+      titre: p.titre,
+      email: p.email,
+      linkedin: p.linkedin,
+      niveauInfluence: inferInfluence(p.titre),
+    });
   }
 
   // 5. Signaux suggérés, dédupliqués sur le titre.

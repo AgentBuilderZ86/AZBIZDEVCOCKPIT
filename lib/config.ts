@@ -32,6 +32,7 @@ export function notionConfig() {
 /** Clés réservées aux phases ultérieures (enrichissement). */
 export const integrations = {
   apolloApiKey: process.env.APOLLO_API_KEY ?? "",
+  hunterApiKey: process.env.HUNTER_API_KEY ?? "",
   exploriumApiKey: process.env.EXPLORIUM_API_KEY ?? "",
   anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
 };
