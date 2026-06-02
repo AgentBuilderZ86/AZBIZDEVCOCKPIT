@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, FileDown } from "lucide-react";
 import { listComptes } from "@/lib/notion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -48,11 +48,16 @@ export default async function HomePage() {
             <Stat label="Dormants" value={String(dormants)} />
           </section>
 
-          <div className="mb-6">
+          <div className="mb-6 flex flex-wrap gap-2">
             <Button asChild>
               <Link href="/comptes">
                 Ouvrir le plan de comptes <ArrowRight className="h-4 w-4" />
               </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <a href="/api/rapport/pdf" target="_blank" rel="noreferrer">
+                <FileDown className="h-4 w-4" /> Rapport portefeuille (PDF)
+              </a>
             </Button>
           </div>
 

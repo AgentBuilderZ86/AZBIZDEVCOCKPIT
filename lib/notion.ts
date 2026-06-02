@@ -5,11 +5,24 @@ import { logWriteback } from "./audit";
 import type {
   Compte,
   CompteCreate,
+  CompteFieldProposal,
   CompteUpdate,
+  Contact,
+  ContactDraft,
+  SignalDraft,
+  NiveauInfluence,
+  Opportunite,
+  OppStage,
   Priorite,
+  PrioriteEngagement,
+  ScoreOpportunite,
   Secteur,
+  Signal,
   Stage,
+  StatutContact,
   StatutRelation,
+  StatutSignal,
+  TypeSignal,
 } from "./types";
 
 /* -------------------------------------------------------------------------- */
@@ -75,6 +88,21 @@ function readUniqueId(prop: any): number | null {
 
 function readDate(prop: any): string | null {
   return prop?.date?.start ?? null;
+}
+
+function readEmail(prop: any): string | null {
+  return prop?.email ?? null;
+}
+
+function readUrl(prop: any): string | null {
+  return prop?.url ?? null;
+}
+
+function readFormulaNumber(prop: any): number | null {
+  const f = prop?.formula;
+  if (!f) return null;
+  if (typeof f.number === "number") return f.number;
+  return null;
 }
 
 export function notionPageToCompte(page: any): Compte {
@@ -246,4 +274,220 @@ export async function archiveCompte(pageId: string): Promise<Compte> {
   const result = await updateCompte(pageId, { statutRelation: "Dormante" });
   logWriteback("archive", pageId, { statutRelation: "Dormante" });
   return result;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Entités liées (vue 360) — mapping + requêtes par relation                  */
+/* -------------------------------------------------------------------------- */
+
+function notionPageToContact(page: any): Contact {
+  const p = page.properties ?? {};
+  return {
+    id: page.id,
+    contactId: readUniqueId(p["Contact ID"]),
+    nomComplet: readTitle(p["Nom complet"]),
+    prenom: readRichText(p["Prénom"]),
+    nom: readRichText(p["Nom"]),
+    titre: readRichText(p["Titre"]),
+    email: readEmail(p["Email"]),
+    linkedin: readUrl(p["LinkedIn"]),
+    direction: readRichText(p["Direction"]),
+    roleDecisionnel: readRichText(p["Rôle décisionnel"]),
+    niveauInfluence: readSelect(p["Niveau influence"]) as NiveauInfluence | null,
+    prioriteEngagement: readSelect(
+      p["Priorité engagement"]
+    ) as PrioriteEngagement | null,
+    statutContact: readSelect(p["Statut contact"]) as StatutContact | null,
+    derniereInteraction: readDate(p["Dernière interaction"]),
+    notes: readRichText(p["Notes contextuelles"]),
+    url: page.url ?? "",
+  };
+}
+
+function notionPageToOpportunite(page: any): Opportunite {
+  const p = page.properties ?? {};
+  return {
+    id: page.id,
+    oppId: readUniqueId(p["Opp ID"]),
+    opportunite: readTitle(p["Opportunité"]),
+    montant: readNumber(p["Montant (k€)"]),
+    probabilite: readNumber(p["Probabilité %"]),
+    arrPondere: readFormulaNumber(p["ARR pondéré (k€)"]),
+    stage: readSelect(p["Stage"]) as OppStage | null,
+    nextStep: readRichText(p["Next step"]),
+    dateNextStep: readDate(p["Date next step"]),
+    dateClose: readDate(p["Date close prévue"]),
+    notes: readRichText(p["Notes"]),
+    url: page.url ?? "",
+  };
+}
+
+function notionPageToSignal(page: any): Signal {
+  const p = page.properties ?? {};
+  return {
+    id: page.id,
+    signalId: readUniqueId(p["Signal ID"]),
+    titre: readTitle(p["Titre signal"]),
+    typeSignal: readSelect(p["Type signal"]) as TypeSignal | null,
+    auteur: readRichText(p["Auteur"]),
+    dateSignal: readDate(p["Date du signal"]),
+    sourceUrl: readUrl(p["Source URL"]),
+    scoreOpportunite: readSelect(
+      p["Score opportunité"]
+    ) as ScoreOpportunite | null,
+    statut: readSelect(p["Statut"]) as StatutSignal | null,
+    actionPrise: readRichText(p["Action prise"]),
+    notes: readRichText(p["Notes"]),
+    url: page.url ?? "",
+  };
+}
+
+/** Requête générique : pages d'une base dont la relation `relationProp` pointe vers `compteId`. */
+async function queryByRelation(
+  databaseId: string,
+  relationProp: string,
+  compteId: string
+): Promise<any[]> {
+  if (!databaseId) return [];
+  const notion = getNotionClient();
+  const results: any[] = [];
+  let cursor: string | undefined = undefined;
+  do {
+    const resp: any = await withRetry(() =>
+      notion.databases.query({
+        database_id: databaseId,
+        filter: {
+          property: relationProp,
+          relation: { contains: compteId },
+        },
+        start_cursor: cursor,
+        page_size: 100,
+      })
+    );
+    results.push(...resp.results);
+    cursor = resp.has_more ? resp.next_cursor : undefined;
+  } while (cursor);
+  return results;
+}
+
+export async function listContactsByCompte(
+  compteId: string
+): Promise<Contact[]> {
+  const { db } = notionConfig();
+  const pages = await queryByRelation(db.contacts, "Compte", compteId);
+  return pages.map(notionPageToContact);
+}
+
+export async function listOpportunitesByCompte(
+  compteId: string
+): Promise<Opportunite[]> {
+  const { db } = notionConfig();
+  const pages = await queryByRelation(db.opportunites, "Compte", compteId);
+  return pages.map(notionPageToOpportunite);
+}
+
+export async function listSignauxByCompte(compteId: string): Promise<Signal[]> {
+  const { db } = notionConfig();
+  const pages = await queryByRelation(db.signaux, "Compte cible", compteId);
+  return pages.map(notionPageToSignal);
+}
+
+/** Agrège la vue 360 d'un compte (compte + entités liées) en parallèle. */
+export async function getCompte360(compteId: string) {
+  const [compte, contacts, opportunites, signaux] = await Promise.all([
+    getCompte(compteId),
+    listContactsByCompte(compteId),
+    listOpportunitesByCompte(compteId),
+    listSignauxByCompte(compteId),
+  ]);
+  return { compte, contacts, opportunites, signaux };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Écriture des entités liées (enrichissement Phase 3)                        */
+/* -------------------------------------------------------------------------- */
+
+function writeEmail(value: string | null | undefined) {
+  return { email: value || null };
+}
+function writeUrl(value: string | null | undefined) {
+  return { url: value || null };
+}
+function writeRelation(pageId: string) {
+  return { relation: [{ id: pageId }] };
+}
+
+/** Crée un Contact rattaché à un compte. */
+export async function createContact(
+  compteId: string,
+  draft: ContactDraft
+): Promise<Contact> {
+  const { db } = notionConfig();
+  const notion = getNotionClient();
+  const props: Record<string, unknown> = {
+    "Nom complet": writeTitle(draft.nomComplet),
+    Compte: writeRelation(compteId),
+    "Statut contact": writeSelect("À identifier"),
+  };
+  if (draft.prenom) props["Prénom"] = writeRichText(draft.prenom);
+  if (draft.nom) props["Nom"] = writeRichText(draft.nom);
+  if (draft.titre) props["Titre"] = writeRichText(draft.titre);
+  if (draft.direction) props["Direction"] = writeRichText(draft.direction);
+  if (draft.email) props["Email"] = writeEmail(draft.email);
+  if (draft.linkedin) props["LinkedIn"] = writeUrl(draft.linkedin);
+  if (draft.niveauInfluence)
+    props["Niveau influence"] = writeSelect(draft.niveauInfluence);
+
+  const page: any = await withRetry(() =>
+    notion.pages.create({
+      parent: { database_id: db.contacts },
+      properties: props as any,
+    })
+  );
+  logWriteback("create", page.id, { type: "contact", ...draft });
+  return notionPageToContact(page);
+}
+
+/** Crée un Signal rattaché à un compte cible. */
+export async function createSignal(
+  compteId: string,
+  draft: SignalDraft
+): Promise<Signal> {
+  const { db } = notionConfig();
+  const notion = getNotionClient();
+  const today = new Date().toISOString().slice(0, 10);
+  const props: Record<string, unknown> = {
+    "Titre signal": writeTitle(draft.titre),
+    "Compte cible": writeRelation(compteId),
+    Statut: writeSelect("À exploiter"),
+    "Date du signal": writeDate(today),
+  };
+  if (draft.typeSignal) props["Type signal"] = writeSelect(draft.typeSignal);
+  if (draft.scoreOpportunite)
+    props["Score opportunité"] = writeSelect(draft.scoreOpportunite);
+  if (draft.sourceUrl) props["Source URL"] = writeUrl(draft.sourceUrl);
+  if (draft.notes) props["Notes"] = writeRichText(draft.notes);
+
+  const page: any = await withRetry(() =>
+    notion.pages.create({
+      parent: { database_id: db.signaux },
+      properties: props as any,
+    })
+  );
+  logWriteback("create", page.id, { type: "signal", ...draft });
+  return notionPageToSignal(page);
+}
+
+/** Met à jour les champs firmo/score/plan d'un compte (enrichissement). */
+export async function updateCompteFields(
+  compteId: string,
+  fields: CompteFieldProposal
+): Promise<Compte> {
+  return updateCompte(compteId, {
+    effectif: fields.effectif,
+    caEstime: fields.caEstime,
+    secteur: fields.secteur,
+    scoreAdilStar: fields.scoreAdilStar,
+    planStrategique: fields.planStrategique,
+  });
 }

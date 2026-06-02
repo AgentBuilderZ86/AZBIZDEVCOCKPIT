@@ -1,0 +1,19 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+# Runtime Next.js officiel de Netlify (App Router, API routes, SSR).
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Les variables d'environnement (NOTION_TOKEN, NOTION_DB_*, APOLLO_API_KEY,
+# ANTHROPIC_API_KEY, CRON_SECRET) se configurent dans Netlify :
+# Site settings → Environment variables. Ne pas committer .env.local.
+
+[functions]
+  # Bundler esbuild pour les Netlify Functions (dont le cron planifié).
+  node_bundler = "esbuild"
+
+# La planification du rafraîchissement (signaux + scores) est définie en code,
+# via `export const config = { schedule: ... }` dans
+# netlify/functions/scheduled-refresh.mts (Netlify Scheduled Functions).
