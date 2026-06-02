@@ -98,6 +98,10 @@ function readUrl(prop: any): string | null {
   return prop?.url ?? null;
 }
 
+function readPhone(prop: any): string | null {
+  return prop?.phone_number ?? null;
+}
+
 function readFormulaNumber(prop: any): number | null {
   const f = prop?.formula;
   if (!f) return null;
@@ -298,6 +302,7 @@ function notionPageToContact(page: any): Contact {
     titre: readRichText(p["Titre"]),
     email: readEmail(p["Email"]),
     linkedin: readUrl(p["LinkedIn"]),
+    telephone: readPhone(p["Téléphone"]),
     direction: readRichText(p["Direction"]),
     roleDecisionnel: readRichText(p["Rôle décisionnel"]),
     niveauInfluence: readSelect(p["Niveau influence"]) as NiveauInfluence | null,
@@ -420,6 +425,9 @@ function writeEmail(value: string | null | undefined) {
 function writeUrl(value: string | null | undefined) {
   return { url: value || null };
 }
+function writePhone(value: string | null | undefined) {
+  return { phone_number: value || null };
+}
 function writeRelation(pageId: string) {
   return { relation: [{ id: pageId }] };
 }
@@ -442,6 +450,7 @@ export async function createContact(
   if (draft.direction) props["Direction"] = writeRichText(draft.direction);
   if (draft.email) props["Email"] = writeEmail(draft.email);
   if (draft.linkedin) props["LinkedIn"] = writeUrl(draft.linkedin);
+  if (draft.telephone) props["Téléphone"] = writePhone(draft.telephone);
   if (draft.niveauInfluence)
     props["Niveau influence"] = writeSelect(draft.niveauInfluence);
 

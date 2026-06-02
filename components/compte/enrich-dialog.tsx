@@ -223,16 +223,29 @@ export function EnrichDialog({ compteId }: Props) {
                           }
                         />
                         <div className="min-w-0 flex-1">
-                          <span className="font-medium">{c.nomComplet}</span>
-                          {c.titre && (
-                            <span className="text-muted-foreground"> — {c.titre}</span>
+                          <div>
+                            <span className="font-medium">{c.nomComplet}</span>
+                            {c.titre && (
+                              <span className="text-muted-foreground"> — {c.titre}</span>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+                            {c.email && <span>✉ {c.email}</span>}
+                            {c.telephone && <span>📞 {c.telephone}</span>}
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 flex-col items-end gap-1">
+                          {c.direction === "Achats" && (
+                            <Badge className="bg-amber-100 font-normal text-amber-800">
+                              Achats
+                            </Badge>
+                          )}
+                          {c.niveauInfluence && (
+                            <Badge variant="outline" className="font-normal">
+                              {c.niveauInfluence}
+                            </Badge>
                           )}
                         </div>
-                        {c.niveauInfluence && (
-                          <Badge variant="outline" className="font-normal">
-                            {c.niveauInfluence}
-                          </Badge>
-                        )}
                       </label>
                     ))}
                   </div>

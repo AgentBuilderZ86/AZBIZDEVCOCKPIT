@@ -138,6 +138,17 @@ export async function searchDecisionMakers(
   domain: string | null
 ): Promise<ApolloResult<ApolloPerson[]>> {
   const titles = [
+    // Achats / Procurement (prioritaires pour le référencement fournisseur Sia)
+    "Acheteur",
+    "Responsable Achats",
+    "Directeur Achats",
+    "Chief Procurement Officer",
+    "Head of Procurement",
+    "Procurement",
+    "Purchasing",
+    "Sourcing",
+    "Supply Chain",
+    // Décideurs généraux
     "CEO",
     "Chief Executive Officer",
     "Director",
@@ -170,4 +181,44 @@ export async function searchDecisionMakers(
     })),
     error: null,
   };
+}
+
+function firstPhone(p: any): string | null {
+  const n = p?.phone_numbers?.[0]?.raw_number ?? p?.sanitized_phone ?? p?.organization?.phone ?? null;
+  return n || null;
+}
+
+/**
+ * Révèle les téléphones via People Bulk Match (reveal_phone_number).
+ * Renvoie une map nomComplet (minuscule) → téléphone. Nécessite un plan Apollo
+ * avec accès API + crédits téléphone ; dégradation propre sinon.
+ */
+export async function revealPhones(
+  people: { prenom: string; nom: string; nomComplet: string }[],
+  domain: string | null
+): Promise<ApolloResult<Record<string, string>>> {
+  const targets = people.filter((p) => p.prenom || p.nom).slice(0, 10);
+  if (targets.length === 0) return { data: {}, error: null };
+
+  const details = targets.map((p) => ({
+    first_name: p.prenom,
+    last_name: p.nom,
+    ...(domain ? { domain } : {}),
+  }));
+
+  const { data, error } = await apolloRequest("/people/bulk_match", {
+    details,
+    reveal_phone_number: true,
+  });
+  if (error) return { data: null, error };
+
+  const map: Record<string, string> = {};
+  for (const m of data?.matches ?? []) {
+    const name = (m?.name ?? `${m?.first_name ?? ""} ${m?.last_name ?? ""}`)
+      .toLowerCase()
+      .trim();
+    const phone = firstPhone(m);
+    if (name && phone) map[name] = phone;
+  }
+  return { data: map, error: null };
 }

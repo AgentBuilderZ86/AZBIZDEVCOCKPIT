@@ -98,6 +98,7 @@ export interface Contact {
   titre: string;
   email: string | null;
   linkedin: string | null;
+  telephone: string | null;
   direction: string;
   roleDecisionnel: string;
   niveauInfluence: NiveauInfluence | null;
@@ -197,6 +198,7 @@ export interface ContactDraft {
   titre?: string;
   email?: string | null;
   linkedin?: string | null;
+  telephone?: string | null;
   direction?: string;
   niveauInfluence?: NiveauInfluence | null;
 }
