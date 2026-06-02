@@ -56,17 +56,27 @@ async function apolloRequest(
     const text = await res.text();
     if (!res.ok) {
       let msg = text.slice(0, 200);
+      let code = "";
       try {
         const j = JSON.parse(text);
         msg = j.error ?? j.message ?? j.error_message ?? msg;
+        code = j.error_code ?? "";
       } catch {
         /* texte brut */
+      }
+      // Cas fréquent : plan Apollo gratuit → API de recherche bloquée.
+      if (code === "API_INACCESSIBLE" || /free plan/i.test(msg)) {
+        return {
+          data: null,
+          error:
+            "Plan Apollo gratuit : l'API de recherche (firmographie & décideurs) nécessite un plan payant avec accès API. Upgrade : https://app.apollo.io/ — l'enrichissement Claude (score, plan, signaux) reste disponible.",
+        };
       }
       const hint =
         res.status === 401
           ? " (clé invalide)"
           : res.status === 403
-          ? " (accès API non inclus dans le plan Apollo, ou endpoint réservé à un plan supérieur)"
+          ? " (accès API non inclus dans le plan Apollo)"
           : "";
       return { data: null, error: `Apollo ${res.status}: ${msg}${hint}` };
     }
