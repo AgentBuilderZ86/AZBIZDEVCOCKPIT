@@ -90,6 +90,11 @@ export function Compte360Tabs({ contacts, opportunites, signaux }: Props) {
                           {c.email}
                         </a>
                       )}
+                      {c.telephone && (
+                        <a href={`tel:${c.telephone}`} className="text-primary hover:underline">
+                          {c.telephone}
+                        </a>
+                      )}
                       {c.linkedin && (
                         <Link href={c.linkedin} target="_blank" className="text-primary hover:underline">
                           in

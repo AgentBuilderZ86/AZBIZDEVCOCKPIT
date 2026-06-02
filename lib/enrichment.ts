@@ -8,6 +8,7 @@ import {
 import {
   enrichOrganization,
   searchDecisionMakers,
+  revealPhones,
   type ApolloPerson,
 } from "./integrations/apollo";
 import { searchHunterContacts } from "./integrations/hunter";
@@ -18,6 +19,13 @@ import type {
   EnrichmentProposal,
   NiveauInfluence,
 } from "./types";
+
+/** Détecte un contact de la fonction Achats (référencement fournisseur). */
+function isAchats(titre: string): boolean {
+  return /(achat|acheteur|procurement|purchas|sourcing|supply chain|approvisionnement)/i.test(
+    titre
+  );
+}
 
 /** Heuristique : déduit un niveau d'influence à partir du titre. */
 function inferInfluence(titre: string): NiveauInfluence | null {
@@ -62,6 +70,21 @@ export async function buildEnrichmentProposal(
   } else if (hunterRes.data && hunterRes.data.length > 0) {
     sources.push("Hunter.io");
     people.push(...hunterRes.data);
+  }
+
+  // 1c. Téléphones via Apollo People Bulk Match (priorité contacts Achats).
+  let phoneMap: Record<string, string> = {};
+  if (people.length > 0) {
+    const ordered = [...people].sort(
+      (a, b) => Number(isAchats(b.titre)) - Number(isAchats(a.titre))
+    );
+    const phoneRes = await revealPhones(ordered, firmo?.domain ?? null);
+    if (phoneRes.error) {
+      warnings.push(`Téléphones Apollo : ${phoneRes.error}`);
+    } else {
+      phoneMap = phoneRes.data ?? {};
+      if (Object.keys(phoneMap).length > 0) sources.push("Apollo (téléphones)");
+    }
   }
 
   // 2. Intelligence Claude (score + plan + signaux).
@@ -124,6 +147,8 @@ export async function buildEnrichmentProposal(
       titre: p.titre,
       email: p.email,
       linkedin: p.linkedin,
+      telephone: phoneMap[nameKey] ?? null,
+      direction: isAchats(p.titre) ? "Achats" : undefined,
       niveauInfluence: inferInfluence(p.titre),
     });
   }
