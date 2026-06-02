@@ -184,3 +184,60 @@ export interface Compte360 {
   opportunites: Opportunite[];
   signaux: Signal[];
 }
+
+/* -------------------------------------------------------------------------- */
+/* Enrichissement (Phase 3) — propositions à valider avant write-back          */
+/* -------------------------------------------------------------------------- */
+
+/** Brouillon de contact proposé par l'enrichissement (non encore écrit). */
+export interface ContactDraft {
+  nomComplet: string;
+  prenom?: string;
+  nom?: string;
+  titre?: string;
+  email?: string | null;
+  linkedin?: string | null;
+  direction?: string;
+  niveauInfluence?: NiveauInfluence | null;
+}
+
+/** Brouillon de signal proposé par l'enrichissement. */
+export interface SignalDraft {
+  titre: string;
+  typeSignal?: TypeSignal | null;
+  scoreOpportunite?: ScoreOpportunite | null;
+  sourceUrl?: string | null;
+  notes?: string;
+}
+
+/** Champs du compte que l'enrichissement propose de modifier. */
+export interface CompteFieldProposal {
+  effectif?: number | null;
+  caEstime?: string;
+  secteur?: Secteur | null;
+  scoreAdilStar?: number | null;
+  planStrategique?: string;
+}
+
+/** Proposition d'enrichissement complète, présentée en diff avant validation. */
+export interface EnrichmentProposal {
+  compteId: string;
+  /** Valeurs actuelles (pour afficher le diff). */
+  current: CompteFieldProposal;
+  /** Valeurs proposées (n'inclut que ce qui change). */
+  proposed: CompteFieldProposal;
+  newContacts: ContactDraft[];
+  newSignaux: SignalDraft[];
+  /** Explication Claude du scoring et du plan. */
+  rationale: string;
+  /** Avertissements non bloquants (ex. source indisponible). */
+  warnings: string[];
+  sources: string[];
+}
+
+/** Payload d'application (sous-ensemble validé par l'utilisateur). */
+export interface EnrichmentApply {
+  compteUpdate?: CompteFieldProposal;
+  contacts?: ContactDraft[];
+  signaux?: SignalDraft[];
+}

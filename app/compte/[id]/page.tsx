@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Compte360Tabs } from "@/components/compte/compte-360-tabs";
 import { PlanBlock } from "@/components/compte/plan-block";
+import { EnrichDialog } from "@/components/compte/enrich-dialog";
 import { valueBadgeClass } from "@/lib/compte-ui";
 import { cn } from "@/lib/utils";
 import type { Compte360 } from "@/lib/types";
@@ -86,6 +87,7 @@ export default async function ComptePage({ params }: { params: { id: string } })
             )}
           </div>
         </div>
+        <EnrichDialog compteId={compte.id} />
       </header>
 
       {/* Firmo / KPIs */}

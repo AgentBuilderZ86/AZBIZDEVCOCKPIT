@@ -5,8 +5,11 @@ import { logWriteback } from "./audit";
 import type {
   Compte,
   CompteCreate,
+  CompteFieldProposal,
   CompteUpdate,
   Contact,
+  ContactDraft,
+  SignalDraft,
   NiveauInfluence,
   Opportunite,
   OppStage,
@@ -398,4 +401,93 @@ export async function getCompte360(compteId: string) {
     listSignauxByCompte(compteId),
   ]);
   return { compte, contacts, opportunites, signaux };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Écriture des entités liées (enrichissement Phase 3)                        */
+/* -------------------------------------------------------------------------- */
+
+function writeEmail(value: string | null | undefined) {
+  return { email: value || null };
+}
+function writeUrl(value: string | null | undefined) {
+  return { url: value || null };
+}
+function writeRelation(pageId: string) {
+  return { relation: [{ id: pageId }] };
+}
+
+/** Crée un Contact rattaché à un compte. */
+export async function createContact(
+  compteId: string,
+  draft: ContactDraft
+): Promise<Contact> {
+  const { db } = notionConfig();
+  const notion = getNotionClient();
+  const props: Record<string, unknown> = {
+    "Nom complet": writeTitle(draft.nomComplet),
+    Compte: writeRelation(compteId),
+    "Statut contact": writeSelect("À identifier"),
+  };
+  if (draft.prenom) props["Prénom"] = writeRichText(draft.prenom);
+  if (draft.nom) props["Nom"] = writeRichText(draft.nom);
+  if (draft.titre) props["Titre"] = writeRichText(draft.titre);
+  if (draft.direction) props["Direction"] = writeRichText(draft.direction);
+  if (draft.email) props["Email"] = writeEmail(draft.email);
+  if (draft.linkedin) props["LinkedIn"] = writeUrl(draft.linkedin);
+  if (draft.niveauInfluence)
+    props["Niveau influence"] = writeSelect(draft.niveauInfluence);
+
+  const page: any = await withRetry(() =>
+    notion.pages.create({
+      parent: { database_id: db.contacts },
+      properties: props as any,
+    })
+  );
+  logWriteback("create", page.id, { type: "contact", ...draft });
+  return notionPageToContact(page);
+}
+
+/** Crée un Signal rattaché à un compte cible. */
+export async function createSignal(
+  compteId: string,
+  draft: SignalDraft
+): Promise<Signal> {
+  const { db } = notionConfig();
+  const notion = getNotionClient();
+  const today = new Date().toISOString().slice(0, 10);
+  const props: Record<string, unknown> = {
+    "Titre signal": writeTitle(draft.titre),
+    "Compte cible": writeRelation(compteId),
+    Statut: writeSelect("À exploiter"),
+    "Date du signal": writeDate(today),
+  };
+  if (draft.typeSignal) props["Type signal"] = writeSelect(draft.typeSignal);
+  if (draft.scoreOpportunite)
+    props["Score opportunité"] = writeSelect(draft.scoreOpportunite);
+  if (draft.sourceUrl) props["Source URL"] = writeUrl(draft.sourceUrl);
+  if (draft.notes) props["Notes"] = writeRichText(draft.notes);
+
+  const page: any = await withRetry(() =>
+    notion.pages.create({
+      parent: { database_id: db.signaux },
+      properties: props as any,
+    })
+  );
+  logWriteback("create", page.id, { type: "signal", ...draft });
+  return notionPageToSignal(page);
+}
+
+/** Met à jour les champs firmo/score/plan d'un compte (enrichissement). */
+export async function updateCompteFields(
+  compteId: string,
+  fields: CompteFieldProposal
+): Promise<Compte> {
+  return updateCompte(compteId, {
+    effectif: fields.effectif,
+    caEstime: fields.caEstime,
+    secteur: fields.secteur,
+    scoreAdilStar: fields.scoreAdilStar,
+    planStrategique: fields.planStrategique,
+  });
 }

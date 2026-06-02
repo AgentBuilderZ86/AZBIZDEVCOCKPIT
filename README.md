@@ -4,11 +4,12 @@ Application web (Next.js 14 / App Router + TypeScript + Tailwind + shadcn/ui) qu
 portefeuille de comptes BizDev d'Adil Zriouil, avec **Notion comme source de vérité**
 (lecture + écriture via l'API officielle `@notionhq/client`).
 
-> État actuel : **Phase 0 (scaffold + connexion Notion)** et **Phase 1 (plan de comptes éditable)**.
-> Phases 2→5 (vue 360, enrichissement Apollo/Vibe, scoring continu, PDF) à venir.
+> État actuel : **Phases 0 → 3** livrées (scaffold, plan de comptes éditable, vue 360,
+> enrichissement Apollo + Claude). Phases 4-5 (scoring continu via cron, PDF) à venir.
 
-## Fonctionnalités (Phases 0 & 1)
+## Fonctionnalités
 
+### Phase 0 & 1 — Plan de comptes
 - **Accueil `/`** — KPIs portefeuille + liste des comptes lus depuis Notion (preuve de lecture).
 - **Plan de comptes `/comptes`** :
   - Tableau : Compte, Secteur, Priorité, Stage, Statut relation, Score AdilStar, ARR pondéré.
@@ -18,6 +19,23 @@ portefeuille de comptes BizDev d'Adil Zriouil, avec **Notion comme source de vé
   - Éditeur du champ long **Plan stratégique compte**.
   - **Création** d'un compte / **archivage** (Statut → `Dormante`).
   - **Vue board** optionnelle groupée par Secteur.
+
+### Phase 2 — Vue 360 par compte (`/compte/[id]`)
+- Entête (firmographie, Score AdilStar, Stage, Statut) + KPIs.
+- Onglets **Contacts / Opportunités / Signaux** agrégés via les relations Notion.
+- Bloc **Plan stratégique éditable** + Notes.
+- Encart **Next Best Action** (heuristique).
+
+### Phase 3 — Enrichissement « Populer »
+- Bouton **Enrichir** sur la fiche compte → orchestration serveur :
+  1. **Apollo.io** (REST) → firmographie (effectif, CA) + décideurs clés.
+  2. **Claude** (`claude-opus-4-8`, adaptive thinking + structured outputs) → Score AdilStar,
+     plan stratégique v1, signaux suggérés.
+  3. Déduplication des contacts (email / LinkedIn / nom).
+- **Diff à valider** : l'utilisateur coche les champs / contacts / signaux à écrire ; rien
+  n'est appliqué en silence. Write-back via `PUT /api/comptes/[id]/enrich`.
+- Dégradation propre : si Apollo ou Claude échoue (réseau, crédits), un avertissement est
+  affiché et le reste de la proposition reste applicable.
 
 ## Architecture
 
