@@ -21,6 +21,14 @@ import type {
   NiveauInfluence,
 } from "./types";
 
+/** Limites de plan/quota connues → on n'encombre pas le diff avec ces warnings. */
+function isKnownProviderLimit(error: string | null | undefined): boolean {
+  if (!error) return false;
+  return /(plan apollo gratuit|api_inaccessible|accès api|429|restricted|quota|absente)/i.test(
+    error
+  );
+}
+
 /** Détecte un contact de la fonction Achats (référencement fournisseur). */
 function isAchats(titre: string): boolean {
   return /(achat|acheteur|procurement|purchas|sourcing|supply chain|approvisionnement)/i.test(
@@ -75,14 +83,16 @@ export async function buildEnrichmentProposal(
   if (firmo) {
     sources.push("Apollo.io");
     const peopleRes = await searchDecisionMakers(compte.compte, firmo.domain);
-    if (peopleRes.error) warnings.push(`Décideurs Apollo : ${peopleRes.error}`);
+    if (peopleRes.error && !isKnownProviderLimit(peopleRes.error))
+      warnings.push(`Décideurs Apollo : ${peopleRes.error}`);
     else people.push(...(peopleRes.data ?? []));
-  } else {
+  } else if (!isKnownProviderLimit(firmoRes.error)) {
     warnings.push(`Firmographie Apollo : ${firmoRes.error}`);
   }
 
   if (hunterRes.error) {
-    warnings.push(`Contacts Hunter : ${hunterRes.error}`);
+    if (!isKnownProviderLimit(hunterRes.error))
+      warnings.push(`Contacts Hunter : ${hunterRes.error}`);
   } else if (hunterRes.data && hunterRes.data.length > 0) {
     sources.push("Hunter.io");
     people.push(...hunterRes.data);
@@ -95,6 +105,12 @@ export async function buildEnrichmentProposal(
     people.push(...webRes.data);
   }
 
+  if (people.length === 0 && !webRes.error) {
+    warnings.push(
+      "Aucun contact public trouvé via la recherche web pour ce compte (LinkedIn/charika.ma souvent restreints). Saisie manuelle possible dans Notion."
+    );
+  }
+
   // 1c. Téléphones via Apollo People Bulk Match (priorité contacts Achats).
   let phoneMap: Record<string, string> = {};
   if (people.length > 0) {
@@ -103,7 +119,8 @@ export async function buildEnrichmentProposal(
     );
     const phoneRes = await revealPhones(ordered, firmo?.domain ?? null);
     if (phoneRes.error) {
-      warnings.push(`Téléphones Apollo : ${phoneRes.error}`);
+      if (!isKnownProviderLimit(phoneRes.error))
+        warnings.push(`Téléphones Apollo : ${phoneRes.error}`);
     } else {
       phoneMap = phoneRes.data ?? {};
       if (Object.keys(phoneMap).length > 0) sources.push("Apollo (téléphones)");
