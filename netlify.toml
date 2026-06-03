@@ -2,6 +2,11 @@
   command = "npm run build"
   publish = ".next"
 
+[build.environment]
+  # Le scan de secrets Netlify ne doit pas inspecter le template d'exemple
+  # (.env.example ne contient que des placeholders vides).
+  SECRETS_SCAN_OMIT_PATHS = ".env.example"
+
 # Runtime Next.js officiel de Netlify (App Router, API routes, SSR).
 [[plugins]]
   package = "@netlify/plugin-nextjs"
