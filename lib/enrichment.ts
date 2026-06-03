@@ -12,6 +12,7 @@ import {
   type ApolloPerson,
 } from "./integrations/apollo";
 import { searchHunterContacts } from "./integrations/hunter";
+import { webResearchContacts } from "./integrations/websearch";
 import { generateAccountIntelligence } from "./integrations/claude";
 import type {
   ContactDraft,
@@ -50,9 +51,26 @@ export async function buildEnrichmentProposal(
   const warnings: string[] = [];
   const sources: string[] = [];
 
-  // 1a. Firmographie + décideurs via Apollo (dégradation propre, cause remontée).
-  const people: ApolloPerson[] = [];
-  const firmoRes = await enrichOrganization(compte.compte);
+  // 1. Sources contacts en PARALLÈLE (limite la latence / les timeouts Netlify) :
+  //    Apollo firmo, Hunter (emails), Recherche web (Google/LinkedIn/charika.ma),
+  //    + intelligence Claude lancée en parallèle.
+  const people: (ApolloPerson & { telephone?: string | null })[] = [];
+  const intelPromise = generateAccountIntelligence({
+    compte,
+    firmographics: null,
+    contacts,
+    signaux,
+  }).then(
+    (ok) => ({ ok }),
+    (err) => ({ err })
+  );
+
+  const [firmoRes, hunterRes, webRes] = await Promise.all([
+    enrichOrganization(compte.compte),
+    searchHunterContacts(compte.compte, null),
+    webResearchContacts(compte.compte),
+  ]);
+
   const firmo = firmoRes.data;
   if (firmo) {
     sources.push("Apollo.io");
@@ -63,13 +81,18 @@ export async function buildEnrichmentProposal(
     warnings.push(`Firmographie Apollo : ${firmoRes.error}`);
   }
 
-  // 1b. Contacts (avec emails) via Hunter.io — par domaine si Apollo l'a fourni.
-  const hunterRes = await searchHunterContacts(compte.compte, firmo?.domain ?? null);
   if (hunterRes.error) {
     warnings.push(`Contacts Hunter : ${hunterRes.error}`);
   } else if (hunterRes.data && hunterRes.data.length > 0) {
     sources.push("Hunter.io");
     people.push(...hunterRes.data);
+  }
+
+  if (webRes.error) {
+    warnings.push(`Recherche web : ${webRes.error}`);
+  } else if (webRes.data && webRes.data.length > 0) {
+    sources.push("Recherche web (LinkedIn / charika.ma)");
+    people.push(...webRes.data);
   }
 
   // 1c. Téléphones via Apollo People Bulk Match (priorité contacts Achats).
@@ -87,17 +110,14 @@ export async function buildEnrichmentProposal(
     }
   }
 
-  // 2. Intelligence Claude (score + plan + signaux).
+  // 2. Intelligence Claude (score + plan + signaux) — lancée en parallèle plus haut.
   let intelligence;
-  try {
-    intelligence = await generateAccountIntelligence({
-      compte,
-      firmographics: firmo,
-      contacts,
-      signaux,
-    });
+  const intelOutcome = await intelPromise;
+  if ("ok" in intelOutcome) {
+    intelligence = intelOutcome.ok;
     sources.push("Claude (claude-opus-4-8)");
-  } catch (err) {
+  } else {
+    const err = intelOutcome.err;
     warnings.push(
       `Analyse Claude indisponible : ${
         err instanceof Error ? err.message : "erreur inconnue"
@@ -147,7 +167,7 @@ export async function buildEnrichmentProposal(
       titre: p.titre,
       email: p.email,
       linkedin: p.linkedin,
-      telephone: phoneMap[nameKey] ?? null,
+      telephone: p.telephone ?? phoneMap[nameKey] ?? null,
       direction: isAchats(p.titre) ? "Achats" : undefined,
       niveauInfluence: inferInfluence(p.titre),
     });
