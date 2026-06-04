@@ -5,6 +5,8 @@
 next-env.d.ts
 .env.local
 .env*.local
+.env.cloud
+.env.local.dev
 .DS_Store
 *.tsbuildinfo
 .vercel

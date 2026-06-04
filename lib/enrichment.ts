@@ -21,6 +21,7 @@ import {
   normalizeName,
   personAlreadyKnown,
 } from "./enrichment-match";
+import { journalEnrichmentApplied } from "./intelligence/journal-hooks";
 import type {
   ContactDraft,
   EnrichmentApply,
@@ -258,5 +259,14 @@ export async function applyEnrichment(
     signauxCreated++;
   }
 
-  return { updatedCompte, contactsCreated, contactsUpdated, signauxCreated };
+  const result = {
+    updatedCompte,
+    contactsCreated,
+    contactsUpdated,
+    signauxCreated,
+  };
+  void journalEnrichmentApplied(compteId, payload, result).catch(() => {
+    /* journal optionnel */
+  });
+  return result;
 }

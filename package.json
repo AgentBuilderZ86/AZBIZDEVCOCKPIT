@@ -6,7 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "db:migrate": "node scripts/migrate.mjs",
+    "db:migrate:cloud": "node scripts/migrate-cloud.mjs",
+    "db:check": "node scripts/db-check.mjs",
+    "db:export-sql": "node scripts/export-migrations-sql.mjs",
+    "db:provision-local": "bash scripts/provision-local-db.sh"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.1",
@@ -23,6 +28,8 @@
     "lucide-react": "^0.469.0",
     "next": "^14.2.35",
     "next-themes": "^0.4.4",
+    "pdf-parse": "^1.1.1",
+    "postgres": "^3.4.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "sonner": "^1.7.1",

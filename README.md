@@ -96,6 +96,84 @@ cp .env.example .env.local
 > connexion sur la page **★ Adil BizDev OS** (ou directement sur chaque base) dans Notion,
 > sinon l'API renvoie `403 restricted_resource`.
 
+## Extension Intelligence (Sprint S0)
+
+Couche **optionnelle** Postgres (`pgvector`) pour journal, jobs async et futur RAG.
+Sans `DATABASE_URL`, l'app reste en mode Notion seul (Phases 0–5).
+
+1. Créer un projet [Supabase](https://supabase.com) ou [Neon](https://neon.tech) et activer l'extension `vector`.
+2. Copier la connection string dans `DATABASE_URL` (`.env.local` + Netlify).
+3. Placer `DATABASE_URL` dans **`.env.local`** à la racine (le script charge ce fichier automatiquement).
+
+4. Diagnostic puis migration :
+
+```bash
+npm run db:check    # teste la connexion + extension vector
+npm run db:migrate  # applique migrations/001, 002…
+```
+
+5. Vérifier : `GET /api/intelligence/health` → `{ "enabled": true, "ok": true }`.
+
+**Secrets agent cloud (Supabase)**
+
+1. [cursor.com → Cloud Agents → Secrets](https://cursor.com/dashboard/cloud-agents) : `DATABASE_URL` (type **Environment Variable** ou **Runtime Secret**, pas Build Secret).
+2. **Relancer un nouvel agent** après avoir ajouté le secret (injection au boot).
+3. Dans l'agent : `npm run db:check` puis `npm run db:migrate:cloud` (n'utilise pas le Postgres local).
+
+**Option A — Postgres local (sans Supabase)**
+
+```bash
+npm run db:provision-local   # installe Postgres+pgvector, .env.local.dev, migrate
+# ou : cp env/.env.local.dev.example .env.local.dev && USE_LOCAL_DB=1 npm run db:migrate
+# ou : docker compose up -d && USE_LOCAL_DB=1 npm run db:migrate
+```
+
+**Option B — Supabase sans CLI**
+
+1. Activer l’extension **vector** dans le dashboard.
+2. Exporter le SQL : `npm run db:export-sql > supabase-manual.sql`
+3. Coller dans **SQL Editor** → Run.
+
+**Supabase — pièges fréquents**
+
+| Problème | Solution |
+|----------|----------|
+| `DATABASE_URL manquante` | Fichier `.env.local` à la racine, pas seulement Netlify |
+| `password authentication failed` | Settings → Database → reset password ; mettre à jour l’URL |
+| `extension "vector" is not available` | Database → Extensions → activer **vector** |
+| Connexion timeout / SSL | Utiliser l’URI **Session** (port **5432**) pour `db:migrate` |
+| Mot de passe avec `@`, `#`… | [Encoder l’URL](https://www.w3schools.com/tags/ref_urlencode.asp) (`@` → `%40`) |
+| Confondre avec Notion | `DATABASE_URL` = URI **PostgreSQL** (`postgresql://…`), pas un token Notion |
+
+**Journal de compte** (append-only) : alimenté automatiquement après enrichissement,
+PATCH compte et cron score. Saisie manuelle : `POST /api/compte/[id]/journal` avec
+`{ "note": "CR RDV …" }`. Lecture : `GET /api/compte/[id]/journal`.
+
+| Variable | Rôle |
+|----------|------|
+| `DATABASE_URL` | Postgres + pgvector |
+| `EMBEDDINGS_API_KEY` | Voyage ou OpenAI (Phase 6, S1) |
+| `EMBEDDINGS_MODEL` | Défaut `voyage-3` (1024 dim) |
+
+En **production**, `CRON_SECRET` est **obligatoire** pour `/api/cron/*`.
+
+### Phase 6 — Base de connaissance (RAG)
+
+Page **`/connaissance`** : upload `.txt` / `.md` / `.pdf`, indexation vectorielle, recherche test avec scores de similarité.
+
+| Variable | Rôle |
+|----------|------|
+| `EMBEDDINGS_API_KEY` | [Voyage AI](https://dash.voyageai.com) (`voyage-3`, 1024 dim) ou OpenAI embeddings |
+| `EMBEDDINGS_MODEL` | Défaut `voyage-3` |
+
+API : `GET /api/knowledge`, `POST /api/knowledge/ingest`, `POST /api/knowledge/search`.
+
+### Phase 6.2 — Copilote fiche compte
+
+Sur **`/compte/[id]`** : panneau « Demander au copilote » — RAG filtré par secteur du compte + contexte Notion + réponse Claude avec badges sources.
+
+API : `POST /api/compte/[id]/copilot` body `{ "question": "…" }`.
+
 ## Développement
 
 ```bash
