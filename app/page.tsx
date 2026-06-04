@@ -55,6 +55,9 @@ export default async function HomePage() {
               </Link>
             </Button>
             <Button asChild variant="outline">
+              <Link href="/connaissance">Base de connaissance</Link>
+            </Button>
+            <Button asChild variant="outline">
               <a href="/api/rapport/pdf" target="_blank" rel="noreferrer">
                 <FileDown className="h-4 w-4" /> Rapport portefeuille (PDF)
               </a>

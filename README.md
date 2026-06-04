@@ -157,6 +157,17 @@ PATCH compte et cron score. Saisie manuelle : `POST /api/compte/[id]/journal` av
 
 En **production**, `CRON_SECRET` est **obligatoire** pour `/api/cron/*`.
 
+### Phase 6 — Base de connaissance (RAG)
+
+Page **`/connaissance`** : upload `.txt` / `.md` / `.pdf`, indexation vectorielle, recherche test avec scores de similarité.
+
+| Variable | Rôle |
+|----------|------|
+| `EMBEDDINGS_API_KEY` | [Voyage AI](https://dash.voyageai.com) (`voyage-3`, 1024 dim) ou OpenAI embeddings |
+| `EMBEDDINGS_MODEL` | Défaut `voyage-3` |
+
+API : `GET /api/knowledge`, `POST /api/knowledge/ingest`, `POST /api/knowledge/search`.
+
 ## Développement
 
 ```bash
