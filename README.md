@@ -165,6 +165,10 @@ Page **`/connaissance`** : upload `.txt` / `.md` / `.pdf`, indexation vectoriell
 |----------|------|
 | `EMBEDDINGS_API_KEY` | [Voyage AI](https://dash.voyageai.com) (`voyage-3`, 1024 dim) ou OpenAI embeddings |
 | `EMBEDDINGS_MODEL` | Défaut `voyage-3` |
+| `VOYAGE_EMBED_BATCH_SIZE` | Défaut `3` — taille des lots d’embedding (gros PDF) |
+| `VOYAGE_EMBED_BATCH_DELAY_MS` | Défaut `0` — mettre `21000` si compte Voyage sans carte (palier 3 req/min) |
+
+Sans moyen de paiement sur [Voyage billing](https://dashboard.voyageai.com/), les limites sont **3 RPM / 10K TPM** ; ajouter une carte débloque les quotas standard (les 200M tokens gratuits restent).
 
 API : `GET /api/knowledge`, `POST /api/knowledge/ingest`, `POST /api/knowledge/search`.
 
