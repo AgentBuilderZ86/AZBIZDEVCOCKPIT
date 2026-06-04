@@ -168,6 +168,12 @@ Page **`/connaissance`** : upload `.txt` / `.md` / `.pdf`, indexation vectoriell
 
 API : `GET /api/knowledge`, `POST /api/knowledge/ingest`, `POST /api/knowledge/search`.
 
+### Phase 6.2 — Copilote fiche compte
+
+Sur **`/compte/[id]`** : panneau « Demander au copilote » — RAG filtré par secteur du compte + contexte Notion + réponse Claude avec badges sources.
+
+API : `POST /api/compte/[id]/copilot` body `{ "question": "…" }`.
+
 ## Développement
 
 ```bash

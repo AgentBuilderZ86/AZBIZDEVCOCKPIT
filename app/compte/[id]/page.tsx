@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Compte360Tabs } from "@/components/compte/compte-360-tabs";
 import { PlanBlock } from "@/components/compte/plan-block";
 import { EnrichDialog } from "@/components/compte/enrich-dialog";
+import { CopilotPanel } from "@/components/compte/copilot-panel";
+import { isIntelligenceEnabled, intelligenceConfig } from "@/lib/intelligence/config";
 import { valueBadgeClass } from "@/lib/compte-ui";
 import { cn } from "@/lib/utils";
 import type { Compte360 } from "@/lib/types";
@@ -49,6 +51,14 @@ export default async function ComptePage({ params }: { params: { id: string } })
   const pipeline = opportunites
     .filter((o) => o.stage && o.stage !== "Lost")
     .reduce((s, o) => s + (o.arrPondere ?? 0), 0);
+
+  const copilotEnabled =
+    isIntelligenceEnabled() && Boolean(intelligenceConfig().embeddingsApiKey);
+  const copilotDisabledReason = !isIntelligenceEnabled()
+    ? "DATABASE_URL absente — migrez Postgres (npm run db:migrate)."
+    : !intelligenceConfig().embeddingsApiKey
+    ? "EMBEDDINGS_API_KEY absente — indexez des docs sur /connaissance."
+    : undefined;
 
   return (
     <main className="container mx-auto max-w-6xl py-8">
@@ -137,6 +147,12 @@ export default async function ComptePage({ params }: { params: { id: string } })
               <p className="whitespace-pre-wrap rounded-md border bg-muted/30 p-3 text-sm">{compte.notes}</p>
             </div>
           )}
+          <CopilotPanel
+            compteId={compte.id}
+            compteName={compte.compte}
+            enabled={copilotEnabled}
+            disabledReason={copilotDisabledReason}
+          />
         </div>
       </section>
     </main>
