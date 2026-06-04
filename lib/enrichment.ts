@@ -4,6 +4,7 @@ import {
   createContact,
   createSignal,
   updateCompteFields,
+  updateContact,
 } from "./notion";
 import {
   enrichOrganization,
@@ -14,6 +15,12 @@ import {
 import { searchHunterContacts } from "./integrations/hunter";
 import { webResearchContacts } from "./integrations/websearch";
 import { generateAccountIntelligence } from "./integrations/claude";
+import {
+  buildContactUpdateProposals,
+  mapApolloIndustryToSecteur,
+  normalizeName,
+  personAlreadyKnown,
+} from "./enrichment-match";
 import type {
   ContactDraft,
   EnrichmentApply,
@@ -58,49 +65,44 @@ export async function buildEnrichmentProposal(
 
   const warnings: string[] = [];
   const sources: string[] = [];
-
-  // 1. Sources contacts en PARALLÈLE (limite la latence / les timeouts Netlify) :
-  //    Apollo firmo, Hunter (emails), Recherche web (Google/LinkedIn/charika.ma),
-  //    + intelligence Claude lancée en parallèle.
   const people: (ApolloPerson & { telephone?: string | null })[] = [];
-  const intelPromise = generateAccountIntelligence({
-    compte,
-    firmographics: null,
-    contacts,
-    signaux,
-  }).then(
-    (ok) => ({ ok }),
-    (err) => ({ err })
-  );
 
-  const [firmoRes, hunterRes, webRes] = await Promise.all([
+  // 1a. Firmographie Apollo d'abord (domaine pour Hunter + contexte Claude).
+  const [firmoRes, webRes] = await Promise.all([
     enrichOrganization(compte.compte),
-    searchHunterContacts(compte.compte, null),
     webResearchContacts(compte.compte),
   ]);
 
   const firmo = firmoRes.data;
   if (firmo) {
     sources.push("Apollo.io");
-    const peopleRes = await searchDecisionMakers(compte.compte, firmo.domain);
-    if (peopleRes.error && !isKnownProviderLimit(peopleRes.error))
-      warnings.push(`Décideurs Apollo : ${peopleRes.error}`);
-    else people.push(...(peopleRes.data ?? []));
   } else if (!isKnownProviderLimit(firmoRes.error)) {
     warnings.push(`Firmographie Apollo : ${firmoRes.error}`);
   }
 
+  // 1b. Hunter (avec domaine Apollo) + décideurs Apollo + recherche web en parallèle.
+  const [hunterRes, peopleRes] = await Promise.all([
+    searchHunterContacts(compte.compte, firmo?.domain ?? null),
+    firmo
+      ? searchDecisionMakers(compte.compte, firmo.domain)
+      : Promise.resolve({ data: null as ApolloPerson[] | null, error: null }),
+  ]);
+
+  if (peopleRes.error && !isKnownProviderLimit(peopleRes.error))
+    warnings.push(`Décideurs Apollo : ${peopleRes.error}`);
+  else if (peopleRes.data?.length) people.push(...peopleRes.data);
+
   if (hunterRes.error) {
     if (!isKnownProviderLimit(hunterRes.error))
       warnings.push(`Contacts Hunter : ${hunterRes.error}`);
-  } else if (hunterRes.data && hunterRes.data.length > 0) {
+  } else if (hunterRes.data?.length) {
     sources.push("Hunter.io");
     people.push(...hunterRes.data);
   }
 
   if (webRes.error) {
     warnings.push(`Recherche web : ${webRes.error}`);
-  } else if (webRes.data && webRes.data.length > 0) {
+  } else if (webRes.data?.length) {
     sources.push("Recherche web (LinkedIn / charika.ma)");
     people.push(...webRes.data);
   }
@@ -127,14 +129,17 @@ export async function buildEnrichmentProposal(
     }
   }
 
-  // 2. Intelligence Claude (score + plan + signaux) — lancée en parallèle plus haut.
+  // 2. Intelligence Claude — après firmographie Apollo (O-01).
   let intelligence;
-  const intelOutcome = await intelPromise;
-  if ("ok" in intelOutcome) {
-    intelligence = intelOutcome.ok;
+  try {
+    intelligence = await generateAccountIntelligence({
+      compte,
+      firmographics: firmo,
+      contacts,
+      signaux,
+    });
     sources.push("Claude (claude-opus-4-8)");
-  } else {
-    const err = intelOutcome.err;
+  } catch (err) {
     warnings.push(
       `Analyse Claude indisponible : ${
         err instanceof Error ? err.message : "erreur inconnue"
@@ -147,36 +152,33 @@ export async function buildEnrichmentProposal(
   if (firmo?.effectif != null && compte.effectif == null)
     proposed.effectif = firmo.effectif;
   if (firmo?.caEstime && !compte.caEstime) proposed.caEstime = firmo.caEstime;
+
+  const mappedSecteur = mapApolloIndustryToSecteur(firmo?.industrie);
+  if (mappedSecteur && !compte.secteur) proposed.secteur = mappedSecteur;
+
   if (intelligence) {
     proposed.scoreAdilStar = Math.round(intelligence.scoreAdilStar);
     proposed.planStrategique = intelligence.planStrategique;
   }
 
-  // 4. Contacts dédupliqués (sur email/linkedin existants).
-  const existingEmails = new Set(
-    contacts.map((c) => c.email?.toLowerCase()).filter(Boolean)
+  // 4. Contacts existants à compléter + nouveaux contacts (dédup floue E-K02).
+  const contactUpdates = buildContactUpdateProposals(
+    contacts,
+    people,
+    phoneMap,
+    inferInfluence,
+    isAchats
   );
-  const existingLinkedins = new Set(
-    contacts.map((c) => c.linkedin?.toLowerCase()).filter(Boolean)
-  );
-  const existingNames = new Set(
-    contacts.map((c) => c.nomComplet.toLowerCase().trim())
-  );
+  const claimedForNew = new Set(contactUpdates.map((u) => u.contactId));
+  const seenNewNames = new Set<string>();
+
   const newContacts: ContactDraft[] = [];
   for (const p of people) {
     if (!p.nomComplet) continue;
-    const emailKey = p.email?.toLowerCase();
-    const linkedinKey = p.linkedin?.toLowerCase();
+    if (personAlreadyKnown(p, contacts, claimedForNew, seenNewNames)) continue;
+
     const nameKey = p.nomComplet.toLowerCase().trim();
-    if (
-      (emailKey && existingEmails.has(emailKey)) ||
-      (linkedinKey && existingLinkedins.has(linkedinKey)) ||
-      existingNames.has(nameKey)
-    )
-      continue;
-    existingNames.add(nameKey);
-    if (emailKey) existingEmails.add(emailKey);
-    if (linkedinKey) existingLinkedins.add(linkedinKey);
+    seenNewNames.add(normalizeName(p.nomComplet));
     newContacts.push({
       nomComplet: p.nomComplet,
       prenom: p.prenom,
@@ -214,6 +216,7 @@ export async function buildEnrichmentProposal(
     },
     proposed,
     newContacts,
+    contactUpdates,
     newSignaux,
     rationale: intelligence?.scoreRationale ?? "",
     warnings,
@@ -225,7 +228,12 @@ export async function buildEnrichmentProposal(
 export async function applyEnrichment(
   compteId: string,
   payload: EnrichmentApply
-): Promise<{ updatedCompte: boolean; contactsCreated: number; signauxCreated: number }> {
+): Promise<{
+  updatedCompte: boolean;
+  contactsCreated: number;
+  contactsUpdated: number;
+  signauxCreated: number;
+}> {
   let updatedCompte = false;
   if (payload.compteUpdate && Object.keys(payload.compteUpdate).length > 0) {
     await updateCompteFields(compteId, payload.compteUpdate);
@@ -238,11 +246,17 @@ export async function applyEnrichment(
     contactsCreated++;
   }
 
+  let contactsUpdated = 0;
+  for (const { contactId, patch } of payload.contactUpdates ?? []) {
+    await updateContact(contactId, patch);
+    contactsUpdated++;
+  }
+
   let signauxCreated = 0;
   for (const draft of payload.signaux ?? []) {
     await createSignal(compteId, draft);
     signauxCreated++;
   }
 
-  return { updatedCompte, contactsCreated, signauxCreated };
+  return { updatedCompte, contactsCreated, contactsUpdated, signauxCreated };
 }

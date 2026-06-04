@@ -464,6 +464,32 @@ export async function createContact(
   return notionPageToContact(page);
 }
 
+/** Met à jour un contact existant (enrichissement — champs ciblés). */
+export async function updateContact(
+  contactId: string,
+  patch: Partial<ContactDraft>
+): Promise<Contact> {
+  const notion = getNotionClient();
+  const props: Record<string, unknown> = {};
+  if (patch.prenom !== undefined) props["Prénom"] = writeRichText(patch.prenom);
+  if (patch.nom !== undefined) props["Nom"] = writeRichText(patch.nom);
+  if (patch.titre !== undefined) props["Titre"] = writeRichText(patch.titre);
+  if (patch.direction !== undefined)
+    props["Direction"] = writeRichText(patch.direction);
+  if (patch.email !== undefined) props["Email"] = writeEmail(patch.email);
+  if (patch.linkedin !== undefined) props["LinkedIn"] = writeUrl(patch.linkedin);
+  if (patch.telephone !== undefined)
+    props["Téléphone"] = writePhone(patch.telephone);
+  if (patch.niveauInfluence !== undefined)
+    props["Niveau influence"] = writeSelect(patch.niveauInfluence);
+
+  const page: any = await withRetry(() =>
+    notion.pages.update({ page_id: contactId, properties: props as any })
+  );
+  logWriteback("update", contactId, { type: "contact", ...patch });
+  return notionPageToContact(page);
+}
+
 /** Crée un Signal rattaché à un compte cible. */
 export async function createSignal(
   compteId: string,

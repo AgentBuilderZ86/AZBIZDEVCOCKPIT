@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listComptes, updateCompte } from "@/lib/notion";
+import { listComptes, listSignauxByCompte, updateCompte } from "@/lib/notion";
 import { computeHeuristicScore } from "@/lib/scoring";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +30,8 @@ export async function POST(req: NextRequest) {
 
     for (const c of comptes) {
       if (c.statutRelation === "Dormante") continue;
-      const next = computeHeuristicScore(c);
+      const signaux = await listSignauxByCompte(c.id);
+      const next = computeHeuristicScore(c, signaux);
       if (next !== c.scoreAdilStar) {
         await updateCompte(c.id, { scoreAdilStar: next });
         changes.push({ compte: c.compte, from: c.scoreAdilStar, to: next });

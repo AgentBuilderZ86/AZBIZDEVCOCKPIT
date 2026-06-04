@@ -221,6 +221,20 @@ export interface CompteFieldProposal {
   planStrategique?: string;
 }
 
+/** Mise à jour proposée d'un contact existant (champs vides → enrichis). */
+export interface ContactUpdateProposal {
+  contactId: string;
+  nomComplet: string;
+  current: Partial<ContactDraft>;
+  proposed: Partial<ContactDraft>;
+}
+
+/** Payload validé pour mettre à jour un contact existant. */
+export interface ContactUpdateApply {
+  contactId: string;
+  patch: Partial<ContactDraft>;
+}
+
 /** Proposition d'enrichissement complète, présentée en diff avant validation. */
 export interface EnrichmentProposal {
   compteId: string;
@@ -229,6 +243,8 @@ export interface EnrichmentProposal {
   /** Valeurs proposées (n'inclut que ce qui change). */
   proposed: CompteFieldProposal;
   newContacts: ContactDraft[];
+  /** Compléments proposés sur des contacts déjà en base. */
+  contactUpdates: ContactUpdateProposal[];
   newSignaux: SignalDraft[];
   /** Explication Claude du scoring et du plan. */
   rationale: string;
@@ -241,5 +257,6 @@ export interface EnrichmentProposal {
 export interface EnrichmentApply {
   compteUpdate?: CompteFieldProposal;
   contacts?: ContactDraft[];
+  contactUpdates?: ContactUpdateApply[];
   signaux?: SignalDraft[];
 }
