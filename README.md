@@ -103,13 +103,27 @@ Sans `DATABASE_URL`, l'app reste en mode Notion seul (Phases 0–5).
 
 1. Créer un projet [Supabase](https://supabase.com) ou [Neon](https://neon.tech) et activer l'extension `vector`.
 2. Copier la connection string dans `DATABASE_URL` (`.env.local` + Netlify).
-3. Appliquer les migrations :
+3. Placer `DATABASE_URL` dans **`.env.local`** à la racine (le script charge ce fichier automatiquement).
+
+4. Diagnostic puis migration :
 
 ```bash
-npm run db:migrate
+npm run db:check    # teste la connexion + extension vector
+npm run db:migrate  # applique migrations/001, 002…
 ```
 
-4. Vérifier : `GET /api/intelligence/health` → `{ "enabled": true, "ok": true }`.
+5. Vérifier : `GET /api/intelligence/health` → `{ "enabled": true, "ok": true }`.
+
+**Supabase — pièges fréquents**
+
+| Problème | Solution |
+|----------|----------|
+| `DATABASE_URL manquante` | Fichier `.env.local` à la racine, pas seulement Netlify |
+| `password authentication failed` | Settings → Database → reset password ; mettre à jour l’URL |
+| `extension "vector" is not available` | Database → Extensions → activer **vector** |
+| Connexion timeout / SSL | Utiliser l’URI **Session** (port **5432**) pour `db:migrate` |
+| Mot de passe avec `@`, `#`… | [Encoder l’URL](https://www.w3schools.com/tags/ref_urlencode.asp) (`@` → `%40`) |
+| Confondre avec Notion | `DATABASE_URL` = URI **PostgreSQL** (`postgresql://…`), pas un token Notion |
 
 **Journal de compte** (append-only) : alimenté automatiquement après enrichissement,
 PATCH compte et cron score. Saisie manuelle : `POST /api/compte/[id]/journal` avec

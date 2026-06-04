@@ -13,10 +13,19 @@ export function getDb(): Sql {
     );
   }
   if (!sql) {
-    sql = postgres(process.env.DATABASE_URL!, {
+    const url = process.env.DATABASE_URL!;
+    const lower = url.toLowerCase();
+    const needsSsl =
+      lower.includes("supabase.co") ||
+      lower.includes("neon.tech") ||
+      lower.includes("sslmode=require");
+    const usesPooler = lower.includes(":6543") || lower.includes("pooler");
+    sql = postgres(url, {
       max: 1,
       idle_timeout: 20,
       connect_timeout: 15,
+      ...(needsSsl ? { ssl: "require" as const } : {}),
+      ...(usesPooler ? { prepare: false } : {}),
     });
   }
   return sql;

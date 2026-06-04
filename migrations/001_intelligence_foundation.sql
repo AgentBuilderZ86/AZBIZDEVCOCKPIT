@@ -1,6 +1,7 @@
 -- Sprint S0 — Fondations Intelligence (Postgres + pgvector)
 -- Exécuter via : npm run db:migrate (nécessite DATABASE_URL)
 
+-- Supabase : activer « vector » dans Database → Extensions si cette ligne échoue.
 CREATE EXTENSION IF NOT EXISTS vector;
 
 -- ---------------------------------------------------------------------------
@@ -28,8 +29,7 @@ CREATE TABLE IF NOT EXISTS knowledge_chunks (
 );
 
 CREATE INDEX IF NOT EXISTS knowledge_chunks_doc_id_idx ON knowledge_chunks(doc_id);
-CREATE INDEX IF NOT EXISTS knowledge_chunks_embedding_idx
-  ON knowledge_chunks USING hnsw (embedding vector_cosine_ops);
+-- Index vectoriel : migration 002 (évite les échecs si pgvector/HNSW indisponible)
 
 -- ---------------------------------------------------------------------------
 -- Phase 6.3 — Journal de compte (append-only)
