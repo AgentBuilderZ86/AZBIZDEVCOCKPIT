@@ -35,6 +35,17 @@ const FIELD_LABELS: Record<string, string> = {
   planStrategique: "Plan stratégique",
 };
 
+const CONTACT_FIELD_LABELS: Record<string, string> = {
+  prenom: "Prénom",
+  nom: "Nom",
+  titre: "Titre",
+  email: "Email",
+  linkedin: "LinkedIn",
+  telephone: "Téléphone",
+  direction: "Direction",
+  niveauInfluence: "Influence",
+};
+
 export function EnrichDialog({ compteId }: Props) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
@@ -44,6 +55,7 @@ export function EnrichDialog({ compteId }: Props) {
 
   const [fields, setFields] = React.useState<Set<FieldKey>>(new Set());
   const [contactsSel, setContactsSel] = React.useState<boolean[]>([]);
+  const [contactUpdatesSel, setContactUpdatesSel] = React.useState<boolean[]>([]);
   const [signauxSel, setSignauxSel] = React.useState<boolean[]>([]);
 
   async function runEnrich() {
@@ -60,6 +72,7 @@ export function EnrichDialog({ compteId }: Props) {
       setProposal(p);
       setFields(new Set(Object.keys(p.proposed) as FieldKey[]));
       setContactsSel(p.newContacts.map(() => true));
+      setContactUpdatesSel((p.contactUpdates ?? []).map(() => true));
       setSignauxSel(p.newSignaux.map(() => true));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur enrichissement.");
@@ -87,6 +100,9 @@ export function EnrichDialog({ compteId }: Props) {
     const payload: EnrichmentApply = {
       compteUpdate,
       contacts: proposal.newContacts.filter((_, i) => contactsSel[i]),
+      contactUpdates: (proposal.contactUpdates ?? [])
+        .filter((_, i) => contactUpdatesSel[i])
+        .map((u) => ({ contactId: u.contactId, patch: u.proposed })),
       signaux: proposal.newSignaux.filter((_, i) => signauxSel[i]),
     };
 
@@ -100,11 +116,12 @@ export function EnrichDialog({ compteId }: Props) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Échec de l'application.");
       const r = data.result;
-      toast.success(
-        `Appliqué : ${r.updatedCompte ? "compte mis à jour, " : ""}${
-          r.contactsCreated
-        } contact(s), ${r.signauxCreated} signal/aux.`
-      );
+      const parts: string[] = [];
+      if (r.updatedCompte) parts.push("compte mis à jour");
+      if (r.contactsCreated) parts.push(`${r.contactsCreated} contact(s) créé(s)`);
+      if (r.contactsUpdated) parts.push(`${r.contactsUpdated} contact(s) complété(s)`);
+      if (r.signauxCreated) parts.push(`${r.signauxCreated} signal/aux`);
+      toast.success(parts.length ? `Appliqué : ${parts.join(", ")}.` : "Appliqué.");
       setOpen(false);
       router.refresh();
     } catch (err) {
@@ -121,6 +138,7 @@ export function EnrichDialog({ compteId }: Props) {
     proposal != null &&
     fields.size === 0 &&
     !contactsSel.some(Boolean) &&
+    !contactUpdatesSel.some(Boolean) &&
     !signauxSel.some(Boolean);
 
   return (
@@ -201,7 +219,52 @@ export function EnrichDialog({ compteId }: Props) {
                 </section>
               )}
 
-              {/* Contacts */}
+              {/* Contacts existants à compléter */}
+              {(proposal.contactUpdates ?? []).length > 0 && (
+                <section>
+                  <h3 className="mb-2 text-sm font-semibold">
+                    Contacts à compléter · {(proposal.contactUpdates ?? []).length}
+                  </h3>
+                  <div className="space-y-1">
+                    {(proposal.contactUpdates ?? []).map((u, i) => (
+                      <label
+                        key={u.contactId}
+                        className="flex cursor-pointer items-start gap-2 rounded-md border border-blue-200 bg-blue-50/50 p-2 text-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          className="mt-1"
+                          checked={contactUpdatesSel[i] ?? false}
+                          onChange={() =>
+                            setContactUpdatesSel((s) =>
+                              s.map((v, idx) => (idx === i ? !v : v))
+                            )
+                          }
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium">{u.nomComplet}</div>
+                          <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                            {Object.entries(u.proposed).map(([key, val]) => (
+                              <li key={key}>
+                                <span className="font-medium text-foreground">
+                                  {CONTACT_FIELD_LABELS[key] ?? key}
+                                </span>
+                                :{" "}
+                                <span className="line-through">
+                                  {fmt(u.current[key as keyof typeof u.current])}
+                                </span>{" "}
+                                → {fmt(val)}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* Nouveaux contacts */}
               {proposal.newContacts.length > 0 && (
                 <section>
                   <h3 className="mb-2 text-sm font-semibold">
@@ -292,6 +355,7 @@ export function EnrichDialog({ compteId }: Props) {
 
               {proposedKeys.length === 0 &&
                 proposal.newContacts.length === 0 &&
+                (proposal.contactUpdates ?? []).length === 0 &&
                 proposal.newSignaux.length === 0 && (
                   <p className="py-6 text-center text-sm text-muted-foreground">
                     Aucune proposition d&apos;enrichissement disponible.
