@@ -33,7 +33,7 @@ export async function embedTexts(
     );
   }
 
-  const model = embeddingsModel || "voyage-3";
+  const model = embeddingsModel;
   const isOpenAI =
     model.startsWith("text-embedding") || model.includes("openai");
 
