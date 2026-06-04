@@ -88,7 +88,13 @@ export async function ingestKnowledgeDocument(
   `;
   const docId = doc.id;
 
-  const embeddings = await embedTexts(chunks, "document");
+  let embeddings: number[][];
+  try {
+    embeddings = await embedTexts(chunks, "document");
+  } catch (err) {
+    await db`DELETE FROM knowledge_docs WHERE id = ${docId}::uuid`;
+    throw err;
+  }
 
   for (let i = 0; i < chunks.length; i++) {
     const vec = vectorLiteral(embeddings[i]);
