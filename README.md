@@ -96,6 +96,33 @@ cp .env.example .env.local
 > connexion sur la page **★ Adil BizDev OS** (ou directement sur chaque base) dans Notion,
 > sinon l'API renvoie `403 restricted_resource`.
 
+## Extension Intelligence (Sprint S0)
+
+Couche **optionnelle** Postgres (`pgvector`) pour journal, jobs async et futur RAG.
+Sans `DATABASE_URL`, l'app reste en mode Notion seul (Phases 0–5).
+
+1. Créer un projet [Supabase](https://supabase.com) ou [Neon](https://neon.tech) et activer l'extension `vector`.
+2. Copier la connection string dans `DATABASE_URL` (`.env.local` + Netlify).
+3. Appliquer les migrations :
+
+```bash
+npm run db:migrate
+```
+
+4. Vérifier : `GET /api/intelligence/health` → `{ "enabled": true, "ok": true }`.
+
+**Journal de compte** (append-only) : alimenté automatiquement après enrichissement,
+PATCH compte et cron score. Saisie manuelle : `POST /api/compte/[id]/journal` avec
+`{ "note": "CR RDV …" }`. Lecture : `GET /api/compte/[id]/journal`.
+
+| Variable | Rôle |
+|----------|------|
+| `DATABASE_URL` | Postgres + pgvector |
+| `EMBEDDINGS_API_KEY` | Voyage ou OpenAI (Phase 6, S1) |
+| `EMBEDDINGS_MODEL` | Défaut `voyage-3` (1024 dim) |
+
+En **production**, `CRON_SECRET` est **obligatoire** pour `/api/cron/*`.
+
 ## Développement
 
 ```bash

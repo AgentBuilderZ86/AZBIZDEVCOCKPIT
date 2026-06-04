@@ -2,6 +2,7 @@ import "server-only";
 import { Client } from "@notionhq/client";
 import { notionConfig } from "./config";
 import { logWriteback } from "./audit";
+import type { JournalSource } from "./intelligence/journal";
 import type {
   Compte,
   CompteCreate,
@@ -249,7 +250,8 @@ export async function getCompte(pageId: string): Promise<Compte> {
 
 export async function updateCompte(
   pageId: string,
-  update: CompteUpdate
+  update: CompteUpdate,
+  opts?: { journalSource?: JournalSource }
 ): Promise<Compte> {
   const notion = getNotionClient();
   const properties = compteUpdateToProps(update);
@@ -257,7 +259,15 @@ export async function updateCompte(
     notion.pages.update({ page_id: pageId, properties: properties as any })
   );
   logWriteback("update", pageId, update);
-  return notionPageToCompte(page);
+  const compte = notionPageToCompte(page);
+  void import("./intelligence/journal-hooks")
+    .then(({ journalComptePatch }) =>
+      journalComptePatch(compte, update, opts?.journalSource)
+    )
+    .catch(() => {
+      /* journal optionnel — ne bloque pas Notion */
+    });
+  return compte;
 }
 
 export async function createCompte(input: CompteCreate): Promise<Compte> {

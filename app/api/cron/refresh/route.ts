@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { assertCronAuthorized } from "@/lib/cron-auth";
+import { journalCronScoreChange } from "@/lib/intelligence/journal-hooks";
 import { listComptes, listSignauxByCompte, updateCompte } from "@/lib/notion";
 import { computeHeuristicScore } from "@/lib/scoring";
 
@@ -13,15 +15,8 @@ export const maxDuration = 120;
  * Protégé par CRON_SECRET.
  */
 export async function POST(req: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = req.headers.get("authorization");
-    const provided =
-      auth?.replace(/^Bearer\s+/i, "") ?? req.nextUrl.searchParams.get("key");
-    if (provided !== secret) {
-      return NextResponse.json({ error: "Non autorisé." }, { status: 401 });
-    }
-  }
+  const denied = assertCronAuthorized(req);
+  if (denied) return denied;
 
   try {
     const comptes = await listComptes();
@@ -33,7 +28,12 @@ export async function POST(req: NextRequest) {
       const signaux = await listSignauxByCompte(c.id);
       const next = computeHeuristicScore(c, signaux);
       if (next !== c.scoreAdilStar) {
-        await updateCompte(c.id, { scoreAdilStar: next });
+        await updateCompte(
+          c.id,
+          { scoreAdilStar: next },
+          { journalSource: "cron" }
+        );
+        void journalCronScoreChange(c, c.scoreAdilStar, next).catch(() => {});
         changes.push({ compte: c.compte, from: c.scoreAdilStar, to: next });
         updated++;
       }
