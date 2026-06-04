@@ -114,6 +114,19 @@ npm run db:migrate  # applique migrations/001, 002…
 
 5. Vérifier : `GET /api/intelligence/health` → `{ "enabled": true, "ok": true }`.
 
+**Option A — Postgres local (sans Supabase)**
+
+```bash
+npm run db:provision-local   # installe Postgres+pgvector, .env.local, migrate
+# ou : docker compose up -d && npm run db:migrate
+```
+
+**Option B — Supabase sans CLI**
+
+1. Activer l’extension **vector** dans le dashboard.
+2. Exporter le SQL : `npm run db:export-sql > supabase-manual.sql`
+3. Coller dans **SQL Editor** → Run.
+
 **Supabase — pièges fréquents**
 
 | Problème | Solution |

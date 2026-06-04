@@ -1,0 +1,22 @@
+# Postgres + pgvector pour le développement local (alternative à provision-local-db.sh)
+# Usage : docker compose up -d && npm run db:migrate
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cockpit
+      POSTGRES_PASSWORD: cockpit_dev_local
+      POSTGRES_DB: cockpit_intelligence
+    ports:
+      - "5432:5432"
+    volumes:
+      - cockpit_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cockpit -d cockpit_intelligence"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  cockpit_pg_data:

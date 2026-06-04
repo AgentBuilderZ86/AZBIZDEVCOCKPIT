@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "db:migrate": "node scripts/migrate.mjs",
-    "db:check": "node scripts/db-check.mjs"
+    "db:check": "node scripts/db-check.mjs",
+    "db:export-sql": "node scripts/export-migrations-sql.mjs",
+    "db:provision-local": "bash scripts/provision-local-db.sh"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.1",
