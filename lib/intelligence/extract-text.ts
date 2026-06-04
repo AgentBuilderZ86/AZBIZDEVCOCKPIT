@@ -16,7 +16,9 @@ export async function extractTextFromFile(
 
   if (lower.endsWith(".pdf")) {
     const buf = Buffer.from(await file.arrayBuffer());
-    const pdfParse = (await import("pdf-parse")).default;
+    // Entrée package "pdf-parse" : en serverless module.parent est absent et
+    // déclenche un readFileSync sur ./test/data/… (ENOENT → 500 Netlify).
+    const pdfParse = (await import("pdf-parse/lib/pdf-parse.js")).default;
     const parsed = await pdfParse(buf);
     return {
       text: parsed.text ?? "",

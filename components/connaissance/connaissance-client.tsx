@@ -23,6 +23,24 @@ interface Props {
   initialDocs: KnowledgeDocSummary[];
 }
 
+/** Lit le corps JSON ou remonte un message lisible (ex. 500 Netlify en texte brut). */
+async function parseApiJson(res: Response): Promise<{ error?: string; [key: string]: unknown }> {
+  const raw = await res.text();
+  if (!raw.trim()) return {};
+  try {
+    return JSON.parse(raw) as { error?: string; [key: string]: unknown };
+  } catch {
+    const preview = raw.replace(/\s+/g, " ").slice(0, 160);
+    throw new Error(
+      res.ok
+        ? "Réponse serveur invalide."
+        : preview.startsWith("Internal")
+          ? "Erreur serveur (500). Vérifiez les logs Netlify et EMBEDDINGS_API_KEY."
+          : preview || `Erreur HTTP ${res.status}.`
+    );
+  }
+}
+
 export function ConnaissanceClient({ intelligenceEnabled, initialDocs }: Props) {
   const [docs, setDocs] = React.useState(initialDocs);
   const [uploading, setUploading] = React.useState(false);
@@ -57,7 +75,7 @@ export function ConnaissanceClient({ intelligenceEnabled, initialDocs }: Props) 
         method: "POST",
         body: fd,
       });
-      const data = await res.json();
+      const data = await parseApiJson(res);
       if (!res.ok) throw new Error(data.error ?? "Échec ingestion.");
       toast.success(
         `Indexé : « ${data.title} » — ${data.chunkCount} chunk(s).`
