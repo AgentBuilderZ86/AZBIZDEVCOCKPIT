@@ -14,7 +14,9 @@ import { loadEnvFiles, postgresOptions } from "./load-env.mjs";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const migrationsDir = join(__dirname, "..", "migrations");
 
-loadEnvFiles();
+loadEnvFiles({
+  cloudOnly: process.env.MIGRATE_CLOUD_ONLY === "1",
+});
 
 const url = process.env.DATABASE_URL?.trim();
 if (!url) {

@@ -4,7 +4,11 @@
  * Usage : npm run db:check
  */
 import postgres from "postgres";
-import { loadEnvFiles, postgresOptions } from "./load-env.mjs";
+import {
+  loadEnvFiles,
+  postgresOptions,
+  isCloudDatabaseUrl,
+} from "./load-env.mjs";
 
 loadEnvFiles();
 
@@ -20,7 +24,10 @@ if (!url) {
 
 const masked = url.replace(/:([^:@/]+)@/, ":***@");
 console.log("✓ DATABASE_URL : définie");
-console.log(`  ${masked}\n`);
+console.log(`  ${masked}`);
+console.log(
+  `  Cible : ${isCloudDatabaseUrl(url) ? "cloud (Supabase/Neon)" : process.env.USE_LOCAL_DB ? "local (USE_LOCAL_DB)" : "local ou autre"}\n`
+);
 
 if (url.includes("NOTION") || url.includes("notion")) {
   console.log("⚠️  L'URL ressemble à Notion, pas à Postgres.");

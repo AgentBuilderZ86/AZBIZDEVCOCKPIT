@@ -114,11 +114,18 @@ npm run db:migrate  # applique migrations/001, 002…
 
 5. Vérifier : `GET /api/intelligence/health` → `{ "enabled": true, "ok": true }`.
 
+**Secrets agent cloud (Supabase)**
+
+1. [cursor.com → Cloud Agents → Secrets](https://cursor.com/dashboard/cloud-agents) : `DATABASE_URL` (type **Environment Variable** ou **Runtime Secret**, pas Build Secret).
+2. **Relancer un nouvel agent** après avoir ajouté le secret (injection au boot).
+3. Dans l'agent : `npm run db:check` puis `npm run db:migrate:cloud` (n'utilise pas le Postgres local).
+
 **Option A — Postgres local (sans Supabase)**
 
 ```bash
-npm run db:provision-local   # installe Postgres+pgvector, .env.local, migrate
-# ou : docker compose up -d && npm run db:migrate
+npm run db:provision-local   # installe Postgres+pgvector, .env.local.dev, migrate
+# ou : cp env/.env.local.dev.example .env.local.dev && USE_LOCAL_DB=1 npm run db:migrate
+# ou : docker compose up -d && USE_LOCAL_DB=1 npm run db:migrate
 ```
 
 **Option B — Supabase sans CLI**
