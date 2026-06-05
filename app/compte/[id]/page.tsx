@@ -8,8 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Compte360Tabs } from "@/components/compte/compte-360-tabs";
 import { PlanBlock } from "@/components/compte/plan-block";
 import { EnrichDialog } from "@/components/compte/enrich-dialog";
-import { CopilotPanel } from "@/components/compte/copilot-panel";
-import { JournalPanel } from "@/components/compte/journal-panel";
+import { CompteIntelligenceAside } from "@/components/compte/compte-intelligence-aside";
 import { isIntelligenceEnabled, intelligenceConfig } from "@/lib/intelligence/config";
 import { valueBadgeClass } from "@/lib/compte-ui";
 import { cn } from "@/lib/utils";
@@ -152,16 +151,13 @@ export default async function ComptePage({ params }: { params: { id: string } })
               <p className="whitespace-pre-wrap rounded-md border bg-muted/30 p-3 text-sm">{compte.notes}</p>
             </div>
           )}
-          <CopilotPanel
+          <CompteIntelligenceAside
             compteId={compte.id}
             compteName={compte.compte}
-            enabled={copilotEnabled}
-            disabledReason={copilotDisabledReason}
-          />
-          <JournalPanel
-            compteId={compte.id}
-            enabled={intelligenceOn}
-            disabledReason={intelligenceDisabledReason}
+            intelligenceOn={intelligenceOn}
+            copilotEnabled={copilotEnabled}
+            intelligenceDisabledReason={intelligenceDisabledReason}
+            copilotDisabledReason={copilotDisabledReason}
           />
         </div>
       </section>

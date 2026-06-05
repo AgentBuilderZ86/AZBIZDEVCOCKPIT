@@ -3,6 +3,7 @@ import { isIntelligenceEnabled } from "@/lib/intelligence/config";
 import { extractTextFromFile } from "@/lib/intelligence/extract-text";
 import { enqueueJob } from "@/lib/intelligence/jobs";
 import { JOB_KNOWLEDGE_INGEST } from "@/lib/intelligence/job-runner";
+import { triggerJobWorker } from "@/lib/intelligence/trigger-worker";
 import { chunkText } from "@/lib/intelligence/chunking";
 import {
   ingestKnowledgeDocument,
@@ -96,7 +97,7 @@ export async function POST(req: NextRequest) {
           { status: 500 }
         );
       }
-      void triggerJobWorker();
+      triggerJobWorker(1);
 
       return NextResponse.json(
         {
@@ -119,20 +120,6 @@ export async function POST(req: NextRequest) {
     const status = clientErrorStatus(message);
     return NextResponse.json({ error: message }, { status });
   }
-}
-
-/** Déclenche le worker jobs (même déploiement, secret serveur). */
-function triggerJobWorker(): void {
-  const secret = process.env.CRON_SECRET?.trim();
-  const base =
-    process.env.URL?.trim() ||
-    process.env.DEPLOY_PRIME_URL?.trim() ||
-    process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  if (!secret || !base) return;
-  void fetch(`${base.replace(/\/$/, "")}/api/cron/jobs?limit=1`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${secret}` },
-  }).catch(() => {});
 }
 
 function clientErrorStatus(message: string): number {
