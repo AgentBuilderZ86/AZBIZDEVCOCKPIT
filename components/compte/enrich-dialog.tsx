@@ -70,16 +70,16 @@ export function EnrichDialog({ compteId }: Props) {
   }
 
   async function pollEnrichJob(dataJobId: string): Promise<EnrichmentProposal> {
-    // Phase A : poll enrich.data (~35-50s) — 20 tentatives × 3s = 60s
+    // Phase A : poll enrich.data (~30-45s) — 30 tentatives × 3s = 90s
     const phaseASteps = [
       "Interrogation des sources Apollo…",
       "Recherche web (LinkedIn / Charika)…",
       "Recherche Hunter & contacts…",
       "Révélation des téléphones…",
     ];
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 30; i++) {
       await new Promise((r) => setTimeout(r, 3000));
-      setLoadingProgress(Math.round(((i + 1) / 20) * 45)); // 0 → 45%
+      setLoadingProgress(Math.round(((i + 1) / 30) * 45)); // 0 → 45%
       setLoadingStatus(phaseASteps[Math.min(i, phaseASteps.length - 1)]);
 
       const job = await pollJob(dataJobId);

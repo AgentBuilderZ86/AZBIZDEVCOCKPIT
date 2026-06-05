@@ -70,7 +70,7 @@ export async function webResearchContacts(
 
   try {
     let final: Anthropic.Message | null = null;
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 4; i++) {
       const res = await getClient().messages.create({
         model: "claude-sonnet-4-6",
         max_tokens: 3500,
