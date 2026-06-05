@@ -4,8 +4,8 @@ Application web (Next.js 14 / App Router + TypeScript + Tailwind + shadcn/ui) qu
 portefeuille de comptes BizDev d'Adil Zriouil, avec **Notion comme source de vérité**
 (lecture + écriture via l'API officielle `@notionhq/client`).
 
-> État actuel : **Phases 0 → 5** livrées (scaffold, plan de comptes éditable, vue 360,
-> enrichissement Apollo + Claude, scoring continu planifié, rapports PDF).
+> État actuel : **Phases 0 → 6.2** livrées (+ Intelligence S0 : Postgres, RAG `/connaissance`,
+> copilote compte, journal UI). **Phase 7** (scoring apprenant) : historique + outcomes en cours.
 > Déploiement cible : **Netlify** (runtime Next.js officiel + Scheduled Functions).
 
 ## Fonctionnalités
@@ -177,6 +177,16 @@ API : `GET /api/knowledge`, `POST /api/knowledge/ingest`, `POST /api/knowledge/s
 Sur **`/compte/[id]`** : panneau « Demander au copilote » — RAG filtré par secteur du compte + contexte Notion + réponse Claude avec badges sources.
 
 API : `POST /api/compte/[id]/copilot` body `{ "question": "…" }`.
+
+### Phase 6.3 — Journal de compte (UI)
+
+Sur **`/compte/[id]`** : timeline append-only (enrichissements, scores cron, saisie manuelle CR RDV).
+
+API : `GET/POST /api/compte/[id]/journal`.
+
+### Phase 7 — Scoring apprenant (fondations)
+
+Tables `score_history` et `outcome_events` alimentées par le **cron** (`/api/cron/refresh`) à chaque changement de score et pour les opps **Won/Lost**. Prochaine étape : pondérations apprises à partir de l’historique.
 
 ## Développement
 

@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertCronAuthorized } from "@/lib/cron-auth";
 import { journalCronScoreChange } from "@/lib/intelligence/journal-hooks";
-import { listComptes, listSignauxByCompte, updateCompte } from "@/lib/notion";
+import {
+  recordCronScoreSnapshot,
+  recordOutcomeEvent,
+} from "@/lib/intelligence/score-history";
+import {
+  listComptes,
+  listOpportunitesByCompte,
+  listSignauxByCompte,
+  updateCompte,
+} from "@/lib/notion";
 import { computeHeuristicScore } from "@/lib/scoring";
 
 export const dynamic = "force-dynamic";
@@ -23,9 +32,18 @@ export async function POST(req: NextRequest) {
     let updated = 0;
     const changes: Array<{ compte: string; from: number | null; to: number }> = [];
 
+    let outcomesRecorded = 0;
+
     for (const c of comptes) {
       if (c.statutRelation === "Dormante") continue;
       const signaux = await listSignauxByCompte(c.id);
+      const opportunites = await listOpportunitesByCompte(c.id);
+
+      for (const opp of opportunites) {
+        const inserted = await recordOutcomeEvent(c, opp).catch(() => false);
+        if (inserted) outcomesRecorded++;
+      }
+
       const next = computeHeuristicScore(c, signaux);
       if (next !== c.scoreAdilStar) {
         await updateCompte(
@@ -34,6 +52,7 @@ export async function POST(req: NextRequest) {
           { journalSource: "cron" }
         );
         void journalCronScoreChange(c, c.scoreAdilStar, next).catch(() => {});
+        void recordCronScoreSnapshot(c, signaux, next).catch(() => {});
         changes.push({ compte: c.compte, from: c.scoreAdilStar, to: next });
         updated++;
       }
@@ -43,6 +62,7 @@ export async function POST(req: NextRequest) {
       ok: true,
       scanned: comptes.length,
       updated,
+      outcomesRecorded,
       changes,
       at: new Date().toISOString(),
     });
