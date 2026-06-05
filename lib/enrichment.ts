@@ -13,6 +13,7 @@ import {
   type ApolloPerson,
 } from "./integrations/apollo";
 import { searchHunterContacts } from "./integrations/hunter";
+import { matchExploriumBusiness } from "./integrations/explorium";
 import { webResearchContacts } from "./integrations/websearch";
 import { generateAccountIntelligence } from "./integrations/claude";
 import {
@@ -68,17 +69,40 @@ export async function buildEnrichmentProposal(
   const sources: string[] = [];
   const people: (ApolloPerson & { telephone?: string | null })[] = [];
 
-  // 1a. Firmographie Apollo d'abord (domaine pour Hunter + contexte Claude).
-  const [firmoRes, webRes] = await Promise.all([
+  // 1a. Firmographie Apollo + Explorium (domaine) + web en parallèle.
+  const [firmoRes, webRes, exploriumRes] = await Promise.all([
     enrichOrganization(compte.compte),
     webResearchContacts(compte.compte),
+    matchExploriumBusiness(compte.compte),
   ]);
 
-  const firmo = firmoRes.data;
+  let firmo = firmoRes.data;
   if (firmo) {
     sources.push("Apollo.io");
   } else if (!isKnownProviderLimit(firmoRes.error)) {
     warnings.push(`Firmographie Apollo : ${firmoRes.error}`);
+  }
+
+  const explorium = exploriumRes.data;
+  if (explorium?.businessId) {
+    sources.push("Explorium (match)");
+  } else if (
+    exploriumRes.error &&
+    !isKnownProviderLimit(exploriumRes.error) &&
+    !/absente/i.test(exploriumRes.error)
+  ) {
+    warnings.push(`Explorium : ${exploriumRes.error}`);
+  }
+
+  if (!firmo?.domain && explorium?.domain) {
+    firmo = firmo
+      ? { ...firmo, domain: explorium.domain }
+      : {
+          domain: explorium.domain,
+          effectif: null,
+          caEstime: null,
+          industrie: null,
+        };
   }
 
   // 1b. Hunter (avec domaine Apollo) + décideurs Apollo + recherche web en parallèle.

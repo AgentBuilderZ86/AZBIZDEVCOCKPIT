@@ -4,8 +4,8 @@ Application web (Next.js 14 / App Router + TypeScript + Tailwind + shadcn/ui) qu
 portefeuille de comptes BizDev d'Adil Zriouil, avec **Notion comme source de vérité**
 (lecture + écriture via l'API officielle `@notionhq/client`).
 
-> État actuel : **Phases 0 → 6.2** livrées (+ Intelligence S0 : Postgres, RAG `/connaissance`,
-> copilote compte, journal UI). **Phase 7** (scoring apprenant) : historique + outcomes en cours.
+> État actuel : **Phases 0 → 9** livrées (RAG, copilote, journal, scoring learned, veille, jobs async).
+> **P5–P8** : réponses citées unifiées, ingest Notion → RAG, Explorium (match), NBA Claude avec repli heuristique.
 > Déploiement cible : **Netlify** (runtime Next.js officiel + Scheduled Functions).
 
 ## Fonctionnalités
@@ -170,7 +170,9 @@ Page **`/connaissance`** : upload `.txt` / `.md` / `.pdf`, indexation vectoriell
 
 Sans moyen de paiement sur [Voyage billing](https://dashboard.voyageai.com/), les limites sont **3 RPM / 10K TPM** ; ajouter une carte débloque les quotas standard (les 200M tokens gratuits restent).
 
-API : `GET /api/knowledge`, `POST /api/knowledge/ingest`, `POST /api/knowledge/search`.
+API : `GET /api/knowledge`, `POST /api/knowledge/ingest`, `POST /api/knowledge/ingest-notion`, `POST /api/knowledge/search`.
+
+**Ingest Notion** : sur `/connaissance`, coller l’URL d’une page partagée avec l’intégration (`sourceType: notion_page`).
 
 ### Phase 6.2 — Copilote fiche compte
 
@@ -200,6 +202,17 @@ API : `POST /api/compte/[id]/veille` (option `?async=1` pour la file jobs).
 ### Phase 9 — Citations copilote enrichies
 
 Le copilote affiche des badges **Patrimoine**, **Signal**, **Contact**, **Journal** (liens Notion/web quand disponibles).
+
+Format serveur unifié : `CitedResponse` (`lib/intelligence/citations.ts` + `cited-response.ts`) — le copilote déduplique les sources avant réponse API.
+
+### P8 — Explorium & Next Best Action IA
+
+- **Explorium** : `matchExploriumBusiness` en parallèle d’Apollo lors du « Populer » ; le domaine matché complète Hunter si Apollo est muet.
+- **NBA** : `resolveNextBestAction` (Claude Sonnet) sur la fiche compte et le PDF Focus, avec repli sur l’heuristique si `ANTHROPIC_API_KEY` absente ou erreur.
+
+| Variable | Rôle |
+|----------|------|
+| `EXPLORIUM_API_KEY` | Header `api_key` sur `POST https://api.explorium.ai/v1/businesses/match` |
 
 ## Développement
 

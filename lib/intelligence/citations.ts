@@ -20,6 +20,8 @@ export interface Citation {
   /** Extrait court ou URL. */
   excerpt?: string;
   url?: string;
+  /** Score RAG (0–1), si applicable. */
+  similarity?: number;
 }
 
 export interface CitedResponse<T = string> {

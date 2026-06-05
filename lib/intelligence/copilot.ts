@@ -5,6 +5,7 @@ import { getCompte360 } from "../notion";
 import { isIntelligenceEnabled, intelligenceConfig } from "./config";
 import { searchKnowledge } from "./knowledge";
 import { listAccountJournal } from "./journal";
+import { buildCitedResponse } from "./cited-response";
 import { buildCopilotCitations } from "./copilot-citations";
 import type { CopilotResponse } from "./copilot-types";
 
@@ -151,16 +152,15 @@ Réponds en structurant ta réponse : synthèse, références Sia citées, recom
     .map((b) => b.text)
     .join("\n");
 
-  const citations = buildCopilotCitations(
-    hits,
-    signaux,
-    contacts,
-    journal
+  const cited = buildCitedResponse(
+    answer.trim() || "Je n'ai pas pu générer de réponse.",
+    buildCopilotCitations(hits, signaux, contacts, journal)
   );
 
   return {
-    answer: answer.trim() || "Je n'ai pas pu générer de réponse.",
-    citations,
-    sourcesUsed: citations.length,
+    answer: cited.content,
+    citations: cited.citations,
+    sourcesUsed: cited.citations.length,
+    rationale: cited.rationale,
   };
 }

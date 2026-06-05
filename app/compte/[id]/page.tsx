@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, ExternalLink, FileDown, Zap } from "lucide-react";
 import { getCompte360 } from "@/lib/notion";
-import { computeNextBestAction } from "@/lib/next-best-action";
+import { resolveNextBestAction } from "@/lib/next-best-action-ai";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,7 +47,12 @@ export default async function ComptePage({ params }: { params: { id: string } })
   }
 
   const { compte, contacts, opportunites, signaux } = data;
-  const nba = computeNextBestAction(compte, contacts, opportunites, signaux);
+  const nba = await resolveNextBestAction(
+    compte,
+    contacts,
+    opportunites,
+    signaux
+  );
   const pipeline = opportunites
     .filter((o) => o.stage && o.stage !== "Lost")
     .reduce((s, o) => s + (o.arrPondere ?? 0), 0);

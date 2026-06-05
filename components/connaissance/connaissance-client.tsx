@@ -79,6 +79,9 @@ export function ConnaissanceClient({ intelligenceEnabled, initialDocs }: Props) 
   const [sourceType, setSourceType] = React.useState("propale");
   const [sector, setSector] = React.useState<string>("");
   const [outcome, setOutcome] = React.useState<string>("");
+  const [notionUrl, setNotionUrl] = React.useState("");
+  const [notionTitle, setNotionTitle] = React.useState("");
+  const [ingestingNotion, setIngestingNotion] = React.useState(false);
 
   async function refreshDocs() {
     const res = await fetch("/api/knowledge");
@@ -155,6 +158,53 @@ export function ConnaissanceClient({ intelligenceEnabled, initialDocs }: Props) 
     }
   }
 
+  async function onIngestNotion(e: React.FormEvent) {
+    e.preventDefault();
+    if (!notionUrl.trim()) return;
+    setIngestingNotion(true);
+    try {
+      const res = await fetch("/api/knowledge/ingest-notion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          notionUrl: notionUrl.trim(),
+          title: notionTitle.trim() || undefined,
+          sector: sector || undefined,
+          outcome: outcome || undefined,
+        }),
+      });
+      const data = await parseApiJson(res);
+
+      if (res.status === 202 && data.queued && data.jobId) {
+        toast.info(
+          typeof data.message === "string"
+            ? data.message
+            : "Indexation Notion en cours…"
+        );
+        await pollIngestJob(
+          String(data.jobId),
+          String(data.title ?? notionTitle ?? "Page Notion")
+        );
+        setNotionUrl("");
+        setNotionTitle("");
+        await refreshDocs();
+        return;
+      }
+
+      if (!res.ok) throw new Error(String(data.error ?? "Échec Notion."));
+      toast.success(
+        `Indexé depuis Notion : « ${data.title} » — ${data.chunkCount} chunk(s).`
+      );
+      setNotionUrl("");
+      setNotionTitle("");
+      await refreshDocs();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur Notion.");
+    } finally {
+      setIngestingNotion(false);
+    }
+  }
+
   async function onDelete(id: string) {
     if (!confirm("Supprimer ce document de l'index ?")) return;
     const res = await fetch(`/api/knowledge/${id}`, { method: "DELETE" });
@@ -202,7 +252,7 @@ export function ConnaissanceClient({ intelligenceEnabled, initialDocs }: Props) 
               <Select value={sourceType} onValueChange={setSourceType}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {["propale", "reference", "offre", "methodo", "cr_rdv", "upload"].map((t) => (
+                  {["propale", "reference", "offre", "methodo", "cr_rdv", "notion_page", "upload"].map((t) => (
                     <SelectItem key={t} value={t}>{t}</SelectItem>
                   ))}
                 </SelectContent>
@@ -234,6 +284,35 @@ export function ConnaissanceClient({ intelligenceEnabled, initialDocs }: Props) 
           </div>
           <Button type="submit" disabled={uploading}>
             {uploading ? "Indexation…" : "Indexer"}
+          </Button>
+        </form>
+
+        <h2 className="text-lg font-semibold">Indexer une page Notion</h2>
+        <form onSubmit={onIngestNotion} className="space-y-3 rounded-md border p-4">
+          <div>
+            <Label htmlFor="notionUrl">URL ou ID de page Notion</Label>
+            <Input
+              id="notionUrl"
+              value={notionUrl}
+              onChange={(e) => setNotionUrl(e.target.value)}
+              placeholder="https://www.notion.so/…"
+              className="mt-1"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              L&apos;intégration Notion doit avoir accès à la page (même token que les bases CRM).
+            </p>
+          </div>
+          <div>
+            <Label htmlFor="notionTitle">Titre (optionnel)</Label>
+            <Input
+              id="notionTitle"
+              value={notionTitle}
+              onChange={(e) => setNotionTitle(e.target.value)}
+              placeholder="Sinon titre de la page Notion"
+            />
+          </div>
+          <Button type="submit" disabled={ingestingNotion || !notionUrl.trim()}>
+            {ingestingNotion ? "Extraction Notion…" : "Indexer depuis Notion"}
           </Button>
         </form>
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import React from "react";
 import { renderToBuffer, type DocumentProps } from "@react-pdf/renderer";
 import { getCompte360 } from "@/lib/notion";
-import { computeNextBestAction } from "@/lib/next-best-action";
+import { resolveNextBestAction } from "@/lib/next-best-action-ai";
 import { FocusComptePdf } from "@/lib/pdf/focus-compte";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ export async function GET(
 ) {
   try {
     const data = await getCompte360(params.id);
-    const nba = computeNextBestAction(
+    const nba = await resolveNextBestAction(
       data.compte,
       data.contacts,
       data.opportunites,

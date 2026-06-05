@@ -1,7 +1,7 @@
 import "server-only";
 import type { Contact, Signal } from "../types";
 import type { KnowledgeSearchHit } from "./knowledge-types";
-import type { CopilotCitation } from "./copilot-types";
+import type { Citation } from "./citations";
 
 type JournalRow = {
   id: string;
@@ -16,8 +16,8 @@ export function buildCopilotCitations(
   signaux: Signal[],
   contacts: Contact[],
   journal: JournalRow[]
-): CopilotCitation[] {
-  const out: CopilotCitation[] = [];
+): Citation[] {
+  const out: Citation[] = [];
 
   for (const h of hits) {
     out.push({
@@ -26,7 +26,7 @@ export function buildCopilotCitations(
       label: h.citation.label,
       excerpt: h.citation.excerpt,
       similarity: h.similarity,
-      url: undefined,
+      url: h.doc.accountUrl ?? undefined,
     });
   }
 

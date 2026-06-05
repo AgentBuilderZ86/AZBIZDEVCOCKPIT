@@ -6,6 +6,7 @@ const CITATION_TYPE_LABELS: Record<string, string> = {
   notion_contact: "Contact",
   notion_compte: "Compte",
   journal_event: "Journal",
+  apollo: "Apollo",
   web: "Web",
 };
 
@@ -33,4 +34,5 @@ export interface CopilotResponse {
   citations: CopilotCitation[];
   /** Extrait RAG utilisés (debug / transparence). */
   sourcesUsed: number;
+  rationale?: string;
 }
