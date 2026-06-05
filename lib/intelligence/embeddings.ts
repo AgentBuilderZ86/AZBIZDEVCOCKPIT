@@ -17,6 +17,23 @@ const VOYAGE_EMBED_BATCH_DELAY_MS = Math.max(
 
 const VOYAGE_MAX_RETRIES = 4;
 
+/** Limite pratique Netlify (plan Pro ~26s ; marge avant coupure « Internal Server Error »). */
+export const INGEST_EMBED_BUDGET_MS = 24_000;
+
+function voyageEmbedBatchSize(): number {
+  if (VOYAGE_EMBED_BATCH_DELAY_MS > 0) return VOYAGE_EMBED_BATCH_SIZE;
+  return Math.max(VOYAGE_EMBED_BATCH_SIZE, 32);
+}
+
+/** Estime la durée d'indexation Voyage (embeddings uniquement). */
+export function estimateVoyageEmbedDurationMs(chunkCount: number): number {
+  if (chunkCount === 0) return 0;
+  const batchSize = voyageEmbedBatchSize();
+  const batches = Math.ceil(chunkCount / batchSize);
+  const perBatchMs = 2_500;
+  return (batches - 1) * VOYAGE_EMBED_BATCH_DELAY_MS + batches * perBatchMs;
+}
+
 /** Génère des embeddings (Voyage AI ou OpenAI selon EMBEDDINGS_MODEL). */
 export async function embedTexts(
   texts: string[],
@@ -80,11 +97,12 @@ async function embedVoyage(
 ): Promise<number[][]> {
   const all: number[][] = [];
 
-  for (let i = 0; i < texts.length; i += VOYAGE_EMBED_BATCH_SIZE) {
+  const batchSize = voyageEmbedBatchSize();
+  for (let i = 0; i < texts.length; i += batchSize) {
     if (i > 0 && VOYAGE_EMBED_BATCH_DELAY_MS > 0) {
       await sleep(VOYAGE_EMBED_BATCH_DELAY_MS);
     }
-    const batch = texts.slice(i, i + VOYAGE_EMBED_BATCH_SIZE);
+    const batch = texts.slice(i, i + batchSize);
     const vectors = await embedVoyageOnce(batch, model, apiKey, inputType);
     all.push(...vectors);
   }

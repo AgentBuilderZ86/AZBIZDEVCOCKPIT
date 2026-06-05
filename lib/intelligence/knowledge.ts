@@ -1,7 +1,12 @@
 import "server-only";
 import { getDb } from "./db";
 import { chunkText } from "./chunking";
-import { embedTexts, vectorLiteral } from "./embeddings";
+import {
+  embedTexts,
+  estimateVoyageEmbedDurationMs,
+  INGEST_EMBED_BUDGET_MS,
+  vectorLiteral,
+} from "./embeddings";
 import type { Citation } from "./citations";
 import type { Secteur } from "../types";
 import { isIntelligenceEnabled } from "./config";
@@ -68,7 +73,19 @@ export async function ingestKnowledgeDocument(
 ): Promise<{ docId: string; chunkCount: number }> {
   const chunks = chunkText(input.rawText);
   if (chunks.length === 0) {
-    throw new Error("Texte trop court ou vide après extraction.");
+    throw new Error(
+      "Texte trop court ou vide après extraction (PDF scanné ou illisible ? Essayez un .txt/.md)."
+    );
+  }
+
+  const embedMs = estimateVoyageEmbedDurationMs(chunks.length);
+  if (embedMs > INGEST_EMBED_BUDGET_MS) {
+    const delay = parseInt(process.env.VOYAGE_EMBED_BATCH_DELAY_MS ?? "0", 10) || 0;
+    throw new Error(
+      delay > 0
+        ? `Indexation estimée ~${Math.ceil(embedMs / 1000)}s (>${INGEST_EMBED_BUDGET_MS / 1000}s max Netlify). Supprimez la variable VOYAGE_EMBED_BATCH_DELAY_MS dans Netlify — la facturation Voyage est active.`
+        : `Document très volumineux (~${chunks.length} segments). Réessayez ou scindez le fichier.`
+    );
   }
 
   const db = getDb();
