@@ -3,7 +3,7 @@ import { applyEnrichment } from "@/lib/enrichment";
 import { enqueueJob } from "@/lib/intelligence/jobs";
 import { triggerJobWorker } from "@/lib/intelligence/trigger-worker";
 import { isIntelligenceEnabled } from "@/lib/intelligence/config";
-import { JOB_ENRICH_PROPOSAL } from "@/lib/intelligence/job-runner";
+import { JOB_ENRICH_DATA } from "@/lib/intelligence/job-runner";
 import type { EnrichmentApply } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -24,11 +24,16 @@ export async function POST(
       );
     }
 
-    const jobId = await enqueueJob(JOB_ENRICH_PROPOSAL, { compteId: params.id });
+    const day = new Date().toISOString().slice(0, 10);
+    const jobId = await enqueueJob(
+      JOB_ENRICH_DATA,
+      { compteId: params.id },
+      `enrich.data:${params.id}:${day}`
+    );
     if (!jobId) {
       return NextResponse.json(
-        { error: "Impossible d'enfiler le job d'enrichissement." },
-        { status: 500 }
+        { error: "Enrichissement déjà en cours aujourd'hui ou file indisponible." },
+        { status: 409 }
       );
     }
 
@@ -39,7 +44,7 @@ export async function POST(
       {
         queued: true,
         jobId,
-        message: "Enrichissement en cours (Apollo + Claude) — 20–40s selon les sources.",
+        message: "Enrichissement en cours (Apollo + Claude) — 60–80s selon les sources.",
       },
       { status: 202 }
     );

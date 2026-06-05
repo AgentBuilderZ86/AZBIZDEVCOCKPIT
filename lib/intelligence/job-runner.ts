@@ -1,12 +1,16 @@
 import "server-only";
 import { ingestKnowledgeDocument, type IngestInput } from "./knowledge";
-import { completeJob, type IntelligenceJob } from "./jobs";
+import { completeJob, enqueueJob, type IntelligenceJob } from "./jobs";
 import { runAccountVeille } from "./veille";
-import { buildEnrichmentProposal } from "@/lib/enrichment";
+import { buildEnrichmentData, buildEnrichmentIntel, type EnrichmentData } from "@/lib/enrichment";
+import { triggerJobWorker } from "./trigger-worker";
 
 const JOB_KNOWLEDGE_INGEST = "knowledge.ingest";
 const JOB_VEILLE_SCAN = "veille.scan";
+/** @deprecated — remplacé par enrich.data + enrich.intel */
 const JOB_ENRICH_PROPOSAL = "enrich.proposal";
+const JOB_ENRICH_DATA = "enrich.data";
+const JOB_ENRICH_INTEL = "enrich.intel";
 
 /** Traite un job réservé (appelé par /api/cron/jobs). */
 export async function runIntelligenceJob(job: IntelligenceJob): Promise<void> {
@@ -17,8 +21,15 @@ export async function runIntelligenceJob(job: IntelligenceJob): Promise<void> {
     case JOB_VEILLE_SCAN:
       await runVeilleScan(job);
       return;
+    case JOB_ENRICH_DATA:
+      await runEnrichData(job);
+      return;
+    case JOB_ENRICH_INTEL:
+      await runEnrichIntel(job);
+      return;
     case JOB_ENRICH_PROPOSAL:
-      await runEnrichProposal(job);
+      // Compatibilité ascendante — exécute les deux phases en séquence.
+      await runEnrichDataAndIntel(job);
       return;
     default:
       throw new Error(`Type de job inconnu : ${job.jobType}`);
@@ -63,13 +74,48 @@ async function runVeilleScan(job: IntelligenceJob): Promise<void> {
   });
 }
 
-async function runEnrichProposal(job: IntelligenceJob): Promise<void> {
+/** Phase 1 : collecte Apollo + Hunter + web research (~35-50s). */
+async function runEnrichData(job: IntelligenceJob): Promise<void> {
   const compteId = String(job.payload.compteId ?? "").trim();
-  if (!compteId) throw new Error("Payload enrich.proposal : compteId requis.");
+  if (!compteId) throw new Error("Payload enrich.data : compteId requis.");
 
-  const proposal = await buildEnrichmentProposal(compteId);
-  // Sérialise la proposition complète dans le résultat du job.
+  const data = await buildEnrichmentData(compteId);
+
+  // Enfile la phase 2 (intel) avec les données comme payload.
+  const day = new Date().toISOString().slice(0, 10);
+  const intelJobId = await enqueueJob(
+    JOB_ENRICH_INTEL,
+    { data: data as unknown as Record<string, unknown> },
+    `enrich.intel:${compteId}:${day}`
+  );
+
+  // Stocke l'ID du job intel dans le résultat pour que l'UI puisse switcher.
+  await completeJob(job.id, {
+    compteId,
+    intelJobId: intelJobId ?? null,
+    dataSummary: { sources: data.sources, warnings: data.warnings, peopleCount: data.people.length },
+  });
+
+  if (intelJobId) triggerJobWorker(1);
+}
+
+/** Phase 2 : Claude Opus → proposition finale (~15-25s). */
+async function runEnrichIntel(job: IntelligenceJob): Promise<void> {
+  const data = job.payload.data as EnrichmentData | undefined;
+  if (!data?.compteId) throw new Error("Payload enrich.intel : data.compteId requis.");
+
+  const proposal = await buildEnrichmentIntel(data);
   await completeJob(job.id, { proposal: proposal as unknown as Record<string, unknown> });
 }
 
-export { JOB_KNOWLEDGE_INGEST, JOB_VEILLE_SCAN, JOB_ENRICH_PROPOSAL };
+/** Compatibilité ascendante : exécute les deux phases dans le même job. */
+async function runEnrichDataAndIntel(job: IntelligenceJob): Promise<void> {
+  const compteId = String(job.payload.compteId ?? "").trim();
+  if (!compteId) throw new Error("Payload enrich.proposal : compteId requis.");
+
+  const data = await buildEnrichmentData(compteId);
+  const proposal = await buildEnrichmentIntel(data);
+  await completeJob(job.id, { proposal: proposal as unknown as Record<string, unknown> });
+}
+
+export { JOB_KNOWLEDGE_INGEST, JOB_VEILLE_SCAN, JOB_ENRICH_PROPOSAL, JOB_ENRICH_DATA, JOB_ENRICH_INTEL };

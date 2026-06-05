@@ -59,17 +59,33 @@ function inferInfluence(titre: string): NiveauInfluence | null {
   return "Influenceur";
 }
 
-/** Construit la proposition d'enrichissement SANS écrire dans Notion. */
-export async function buildEnrichmentProposal(
+/** Données brutes collectées lors de la phase 1 (sources externes). */
+export interface EnrichmentData {
+  compteId: string;
+  compte: Awaited<ReturnType<typeof getCompte360>>["compte"];
+  contacts: Awaited<ReturnType<typeof getCompte360>>["contacts"];
+  signaux: Awaited<ReturnType<typeof getCompte360>>["signaux"];
+  firmo: import("./integrations/apollo").ApolloFirmographics | null;
+  people: (ApolloPerson & { telephone?: string | null })[];
+  phoneMap: Record<string, string>;
+  warnings: string[];
+  sources: string[];
+}
+
+/**
+ * Phase 1 : collecte les données externes (Apollo, Hunter, web research).
+ * Durée estimée : 35-50s. Ne fait aucun appel Claude.
+ */
+export async function buildEnrichmentData(
   compteId: string
-): Promise<EnrichmentProposal> {
+): Promise<EnrichmentData> {
   const { compte, contacts, signaux } = await getCompte360(compteId);
 
   const warnings: string[] = [];
   const sources: string[] = [];
   const people: (ApolloPerson & { telephone?: string | null })[] = [];
 
-  // 1a. Firmographie Apollo + Explorium (domaine) + web en parallèle.
+  // 1a. Firmographie Apollo + Explorium + web en parallèle.
   const [firmoRes, webRes, exploriumRes] = await Promise.all([
     enrichOrganization(compte.compte),
     webResearchContacts(compte.compte),
@@ -97,15 +113,10 @@ export async function buildEnrichmentProposal(
   if (!firmo?.domain && explorium?.domain) {
     firmo = firmo
       ? { ...firmo, domain: explorium.domain }
-      : {
-          domain: explorium.domain,
-          effectif: null,
-          caEstime: null,
-          industrie: null,
-        };
+      : { domain: explorium.domain, effectif: null, caEstime: null, industrie: null };
   }
 
-  // 1b. Hunter (avec domaine Apollo) + décideurs Apollo + recherche web en parallèle.
+  // 1b. Hunter + décideurs Apollo en parallèle.
   const [hunterRes, peopleRes] = await Promise.all([
     searchHunterContacts(compte.compte, firmo?.domain ?? null),
     firmo
@@ -138,7 +149,7 @@ export async function buildEnrichmentProposal(
     );
   }
 
-  // 1c. Téléphones via Apollo People Bulk Match (priorité contacts Achats).
+  // 1c. Téléphones.
   let phoneMap: Record<string, string> = {};
   if (people.length > 0) {
     const ordered = [...people].sort(
@@ -154,7 +165,20 @@ export async function buildEnrichmentProposal(
     }
   }
 
-  // 2. Intelligence Claude — après firmographie Apollo (O-01).
+  return { compteId, compte, contacts, signaux, firmo, people, phoneMap, warnings, sources };
+}
+
+/**
+ * Phase 2 : appelle Claude Opus pour l'intelligence compte, assemble la proposition finale.
+ * Durée estimée : 15-25s (sans extended thinking).
+ */
+export async function buildEnrichmentIntel(
+  data: EnrichmentData
+): Promise<EnrichmentProposal> {
+  const { compteId, compte, contacts, signaux, firmo, people, phoneMap, warnings, sources } = data;
+  const allWarnings = [...warnings];
+  const allSources = [...sources];
+
   let intelligence;
   try {
     intelligence = await generateAccountIntelligence({
@@ -163,37 +187,24 @@ export async function buildEnrichmentProposal(
       contacts,
       signaux,
     });
-    sources.push("Claude (claude-opus-4-8)");
+    allSources.push("Claude (claude-opus-4-8)");
   } catch (err) {
-    warnings.push(
-      `Analyse Claude indisponible : ${
-        err instanceof Error ? err.message : "erreur inconnue"
-      }`
+    allWarnings.push(
+      `Analyse Claude indisponible : ${err instanceof Error ? err.message : "erreur inconnue"}`
     );
   }
 
-  // 3. Champs compte proposés (ne propose que les changements utiles).
   const proposed: EnrichmentProposal["proposed"] = {};
-  if (firmo?.effectif != null && compte.effectif == null)
-    proposed.effectif = firmo.effectif;
+  if (firmo?.effectif != null && compte.effectif == null) proposed.effectif = firmo.effectif;
   if (firmo?.caEstime && !compte.caEstime) proposed.caEstime = firmo.caEstime;
-
   const mappedSecteur = mapApolloIndustryToSecteur(firmo?.industrie);
   if (mappedSecteur && !compte.secteur) proposed.secteur = mappedSecteur;
-
   if (intelligence) {
     proposed.scoreAdilStar = Math.round(intelligence.scoreAdilStar);
     proposed.planStrategique = intelligence.planStrategique;
   }
 
-  // 4. Contacts existants à compléter + nouveaux contacts (dédup floue E-K02).
-  const contactUpdates = buildContactUpdateProposals(
-    contacts,
-    people,
-    phoneMap,
-    inferInfluence,
-    isAchats
-  );
+  const contactUpdates = buildContactUpdateProposals(contacts, people, phoneMap, inferInfluence, isAchats);
   const claimedForNew = new Set(contactUpdates.map((u) => u.contactId));
   const seenNewNames = new Set<string>();
 
@@ -201,7 +212,6 @@ export async function buildEnrichmentProposal(
   for (const p of people) {
     if (!p.nomComplet) continue;
     if (personAlreadyKnown(p, contacts, claimedForNew, seenNewNames)) continue;
-
     const nameKey = p.nomComplet.toLowerCase().trim();
     seenNewNames.add(normalizeName(p.nomComplet));
     newContacts.push({
@@ -217,18 +227,11 @@ export async function buildEnrichmentProposal(
     });
   }
 
-  // 5. Signaux suggérés, dédupliqués sur le titre.
-  const existingSignalTitles = new Set(
-    signaux.map((s) => s.titre.toLowerCase().trim())
-  );
+  const existingSignalTitles = new Set(signaux.map((s: import("./types").Signal) => s.titre.toLowerCase().trim()));
+  type SuggestedSignal = NonNullable<typeof intelligence>["suggestedSignaux"][number];
   const newSignaux = (intelligence?.suggestedSignaux ?? [])
-    .filter((s) => !existingSignalTitles.has(s.titre.toLowerCase().trim()))
-    .map((s) => ({
-      titre: s.titre,
-      typeSignal: s.typeSignal,
-      scoreOpportunite: s.scoreOpportunite,
-      notes: s.notes,
-    }));
+    .filter((s: SuggestedSignal) => !existingSignalTitles.has(s.titre.toLowerCase().trim()))
+    .map((s: SuggestedSignal) => ({ titre: s.titre, typeSignal: s.typeSignal, scoreOpportunite: s.scoreOpportunite, notes: s.notes }));
 
   return {
     compteId,
@@ -244,9 +247,17 @@ export async function buildEnrichmentProposal(
     contactUpdates,
     newSignaux,
     rationale: intelligence?.scoreRationale ?? "",
-    warnings,
-    sources,
+    warnings: allWarnings,
+    sources: allSources,
   };
+}
+
+/** Construit la proposition complète en un seul appel (garde la compatibilité). */
+export async function buildEnrichmentProposal(
+  compteId: string
+): Promise<EnrichmentProposal> {
+  const data = await buildEnrichmentData(compteId);
+  return buildEnrichmentIntel(data);
 }
 
 /** Applique le sous-ensemble validé : write-back Notion. */

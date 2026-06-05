@@ -98,8 +98,7 @@ export async function generateAccountIntelligence(
 
   const response = await getClient().messages.parse({
     model: "claude-opus-4-8",
-    max_tokens: 8000,
-    thinking: { type: "adaptive" },
+    max_tokens: 4000,
     system: [
       {
         type: "text",
