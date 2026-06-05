@@ -35,7 +35,7 @@ async function parseApiJson(res: Response): Promise<{ error?: string; [key: stri
       res.ok
         ? "Réponse serveur invalide."
         : preview.startsWith("Internal")
-          ? "Erreur serveur (500). Vérifiez les logs Netlify et EMBEDDINGS_API_KEY."
+          ? "Délai dépassé ou crash serveur (Netlify ~26s). Sur Netlify, supprimez VOYAGE_EMBED_BATCH_DELAY_MS si la facturation Voyage est active, puis redéployez. Sinon réduisez le PDF ou consultez les logs Functions."
           : preview || `Erreur HTTP ${res.status}.`
     );
   }

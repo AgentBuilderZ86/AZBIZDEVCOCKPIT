@@ -16,14 +16,21 @@ export async function extractTextFromFile(
 
   if (lower.endsWith(".pdf")) {
     const buf = Buffer.from(await file.arrayBuffer());
-    // Entrée package "pdf-parse" : en serverless module.parent est absent et
-    // déclenche un readFileSync sur ./test/data/… (ENOENT → 500 Netlify).
-    const pdfParse = (await import("pdf-parse/lib/pdf-parse.js")).default;
-    const parsed = await pdfParse(buf);
-    return {
-      text: parsed.text ?? "",
-      suggestedTitle: basename(name),
-    };
+    try {
+      // Entrée package "pdf-parse" : en serverless module.parent est absent et
+      // déclenche un readFileSync sur ./test/data/… (ENOENT → 500 Netlify).
+      const pdfParse = (await import("pdf-parse/lib/pdf-parse.js")).default;
+      const parsed = await pdfParse(buf);
+      return {
+        text: parsed.text ?? "",
+        suggestedTitle: basename(name),
+      };
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      throw new Error(
+        `Lecture PDF impossible (${name}) : ${detail.slice(0, 200)}. PDF protégé, scanné ou corrompu ?`
+      );
+    }
   }
 
   throw new Error(

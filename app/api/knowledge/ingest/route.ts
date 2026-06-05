@@ -75,6 +75,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, ...result, title });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Erreur ingestion.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const status = clientErrorStatus(message);
+    return NextResponse.json({ error: message }, { status });
   }
+}
+
+function clientErrorStatus(message: string): number {
+  if (
+    /trop volumineux|Fournissez|Secteur invalide|Format non supporté|trop court|trop longue|PDF|Supprimez la variable VOYAGE|Document très volumineux|illisible/i.test(
+      message
+    )
+  ) {
+    return 400;
+  }
+  return 500;
 }
