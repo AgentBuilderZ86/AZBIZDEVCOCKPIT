@@ -1,4 +1,5 @@
 import "server-only";
+import { extractText, getDocumentProxy } from "unpdf";
 
 const TEXT_EXT = new Set([".txt", ".md", ".markdown", ".json", ".csv"]);
 
@@ -17,12 +18,12 @@ export async function extractTextFromFile(
   if (lower.endsWith(".pdf")) {
     const buf = Buffer.from(await file.arrayBuffer());
     try {
-      // Entrée package "pdf-parse" : en serverless module.parent est absent et
-      // déclenche un readFileSync sur ./test/data/… (ENOENT → 500 Netlify).
-      const pdfParse = (await import("pdf-parse/lib/pdf-parse.js")).default;
-      const parsed = await pdfParse(buf);
+      const pdf = await getDocumentProxy(new Uint8Array(buf));
+      const { text } = await extractText(pdf, { mergePages: true });
+      const merged =
+        typeof text === "string" ? text : (text as string[]).join("\n\n");
       return {
-        text: parsed.text ?? "",
+        text: merged.trim(),
         suggestedTitle: basename(name),
       };
     } catch (err) {

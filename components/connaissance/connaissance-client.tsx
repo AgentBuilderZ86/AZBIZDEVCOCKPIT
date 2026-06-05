@@ -148,6 +148,9 @@ export function ConnaissanceClient({ intelligenceEnabled, initialDocs }: Props) 
           <div>
             <Label htmlFor="file">Fichier (.txt, .md, .pdf)</Label>
             <Input id="file" name="file" type="file" accept=".txt,.md,.markdown,.pdf" className="mt-1" />
+            <p className="mt-1 text-xs text-muted-foreground">
+              PDF volumineux : l’indexation peut prendre 20–30 s. En cas d’échec, exportez en .txt (comme votre RFP Optorg).
+            </p>
           </div>
           <div>
             <Label htmlFor="title">Titre (optionnel)</Label>
