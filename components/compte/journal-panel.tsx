@@ -45,7 +45,7 @@ export function JournalPanel({
       const data = await parseApiJson(res);
       if (!res.ok) throw new Error(data.error ?? "Chargement impossible.");
       setEvents(
-        (data.events ?? []).map((e: JournalEvent & { eventDate?: string }) => ({
+        ((data.events as (JournalEvent & { eventDate?: string })[]) ?? []).map((e) => ({
           ...e,
           eventDate:
             typeof e.eventDate === "string"
