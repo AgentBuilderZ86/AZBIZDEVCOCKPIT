@@ -27,7 +27,7 @@ export function VeillePanel({ compteId, enabled, onComplete }: Props) {
       if (!res.ok) throw new Error(data.error ?? "Veille impossible.");
 
       if (data.queued) {
-        toast.info(data.message ?? "Veille lancée en arrière-plan.");
+        toast.info(typeof data.message === "string" ? data.message : "Veille lancée en arrière-plan.");
         onComplete?.();
         return;
       }
