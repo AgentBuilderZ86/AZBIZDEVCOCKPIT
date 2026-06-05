@@ -5,6 +5,7 @@ import { Newspaper } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { parseApiJson } from "@/lib/parse-api-json";
 
 interface Props {
   compteId: string;
@@ -22,7 +23,7 @@ export function VeillePanel({ compteId, enabled, onComplete }: Props) {
       const res = await fetch(`/api/compte/${compteId}/veille${q}`, {
         method: "POST",
       });
-      const data = await res.json();
+      const data = await parseApiJson(res);
       if (!res.ok) throw new Error(data.error ?? "Veille impossible.");
 
       if (data.queued) {

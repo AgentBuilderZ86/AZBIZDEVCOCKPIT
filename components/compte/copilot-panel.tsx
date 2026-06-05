@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { parseApiJson } from "@/lib/parse-api-json";
 import type {
   CopilotCitation,
   CopilotMessage,
@@ -67,7 +68,7 @@ export function CopilotPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: q }),
       });
-      const data = await res.json();
+      const data = await parseApiJson(res);
       if (!res.ok) throw new Error(data.error ?? "Échec du copilote.");
 
       setMessages((m) => [

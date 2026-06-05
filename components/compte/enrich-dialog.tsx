@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { parseApiJson } from "@/lib/parse-api-json";
 import type {
   CompteFieldProposal,
   EnrichmentApply,
@@ -34,22 +35,6 @@ const FIELD_LABELS: Record<string, string> = {
   scoreAdilStar: "Score AdilStar",
   planStrategique: "Plan stratégique",
 };
-
-/** Lit le corps JSON ou remonte un message lisible si le serveur renvoie du HTML (ex. timeout Netlify). */
-async function parseApiJson(res: Response): Promise<{ error?: string; [key: string]: unknown }> {
-  const raw = await res.text();
-  if (!raw.trim()) return {};
-  try {
-    return JSON.parse(raw) as { error?: string; [key: string]: unknown };
-  } catch {
-    const preview = raw.replace(/\s+/g, " ").slice(0, 200);
-    throw new Error(
-      preview.startsWith("Internal") || preview.includes("<HTML") || preview.includes("<html")
-        ? "Délai dépassé ou crash serveur (Netlify ~26s). L'enrichissement Apollo + Claude peut prendre jusqu'à 30s — réessayez ou consultez les logs Functions."
-        : preview || `Erreur HTTP ${res.status}.`
-    );
-  }
-}
 
 const CONTACT_FIELD_LABELS: Record<string, string> = {
   prenom: "Prénom",

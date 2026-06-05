@@ -9,6 +9,7 @@ import {
   journalEventLabel,
   journalSourceLabel,
 } from "@/lib/intelligence/journal-display";
+import { parseApiJson } from "@/lib/parse-api-json";
 
 interface JournalEvent {
   id: string;
@@ -41,7 +42,7 @@ export function JournalPanel({
     setLoading(true);
     try {
       const res = await fetch(`/api/compte/${compteId}/journal`);
-      const data = await res.json();
+      const data = await parseApiJson(res);
       if (!res.ok) throw new Error(data.error ?? "Chargement impossible.");
       setEvents(
         (data.events ?? []).map((e: JournalEvent & { eventDate?: string }) => ({
@@ -74,7 +75,7 @@ export function JournalPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ note: trimmed }),
       });
-      const data = await res.json();
+      const data = await parseApiJson(res);
       if (!res.ok) throw new Error(data.error ?? "Échec enregistrement.");
       setNote("");
       toast.success("Note ajoutée au journal.");

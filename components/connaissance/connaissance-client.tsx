@@ -21,6 +21,19 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { SECTEURS } from "@/lib/types";
+
+/** Variante locale : distingue le timeout pour afficher le bloc amber. */
+async function parseApiJson(res: Response): Promise<{ error?: string; [key: string]: unknown }> {
+  const raw = await res.text();
+  if (!raw.trim()) return {};
+  try {
+    return JSON.parse(raw) as { error?: string; [key: string]: unknown };
+  } catch {
+    const preview = raw.replace(/\s+/g, " ").slice(0, 160);
+    const isHtml = preview.includes("<") || preview.startsWith("Internal");
+    throw new Error(isHtml ? "timeout" : preview || `Erreur HTTP ${res.status}.`);
+  }
+}
 import type {
   KnowledgeDocSummary,
   KnowledgeSearchHit,
@@ -31,23 +44,6 @@ interface Props {
   initialDocs: KnowledgeDocSummary[];
 }
 
-/** Lit le corps JSON ou remonte un message lisible (ex. 500 Netlify en texte brut). */
-async function parseApiJson(res: Response): Promise<{ error?: string; [key: string]: unknown }> {
-  const raw = await res.text();
-  if (!raw.trim()) return {};
-  try {
-    return JSON.parse(raw) as { error?: string; [key: string]: unknown };
-  } catch {
-    const preview = raw.replace(/\s+/g, " ").slice(0, 160);
-    throw new Error(
-      res.ok
-        ? "Réponse serveur invalide."
-        : preview.startsWith("Internal")
-          ? "timeout"
-          : preview || `Erreur HTTP ${res.status}.`
-    );
-  }
-}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
