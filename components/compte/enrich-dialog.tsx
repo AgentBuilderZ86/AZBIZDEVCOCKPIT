@@ -131,7 +131,7 @@ export function EnrichDialog({ compteId }: Props) {
       });
       const data = await parseApiJson(res);
       if (!res.ok) throw new Error(data.error ?? "Échec de l'application.");
-      const r = data.result;
+      const r = data.result as { updatedCompte?: boolean; contactsCreated?: number; contactsUpdated?: number; signauxCreated?: number };
       const parts: string[] = [];
       if (r.updatedCompte) parts.push("compte mis à jour");
       if (r.contactsCreated) parts.push(`${r.contactsCreated} contact(s) créé(s)`);
