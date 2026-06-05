@@ -73,7 +73,7 @@ export default async function ComptePage({ params }: { params: { id: string } })
   return (
     <main className="container mx-auto max-w-6xl py-8">
       {/* Entête */}
-      <header className="mt-3 flex flex-wrap items-start justify-between gap-4">
+      <header className="mt-1 flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold">{compte.compte || "—"}</h1>
@@ -181,9 +181,9 @@ export default async function ComptePage({ params }: { params: { id: string } })
 
 function Kpi({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border bg-card p-3">
+    <div className="rounded-xl border bg-white/75 p-3 backdrop-blur-sm shadow-sm" style={{ boxShadow: "0 1px 3px hsl(220 20% 0% / 0.05), inset 0 1px 0 hsl(0 0% 100% / 0.7)" }}>
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-0.5 text-lg font-bold">{value}</p>
+      <p className="mt-0.5 text-lg font-bold tracking-tight">{value}</p>
     </div>
   );
 }

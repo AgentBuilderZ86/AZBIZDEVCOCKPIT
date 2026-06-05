@@ -54,7 +54,7 @@ export function ComptesTable({ comptes, onUpdate, onArchive }: Props) {
 
   return (
     <div className="space-y-1">
-    <div className="rounded-md border">
+    <div className="rounded-xl border bg-white/70 backdrop-blur-sm overflow-hidden" style={{ boxShadow: "0 1px 3px hsl(220 20% 0% / 0.05), inset 0 1px 0 hsl(0 0% 100% / 0.7)" }}>
       <Table>
         <TableHeader>
           <TableRow>
