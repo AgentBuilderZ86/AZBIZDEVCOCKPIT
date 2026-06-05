@@ -75,7 +75,7 @@ export function CopilotPanel({
         ...m,
         {
           role: "assistant",
-          content: data.answer,
+          content: String(data.answer ?? ""),
           citations: data.citations as CopilotCitation[],
         },
       ]);
