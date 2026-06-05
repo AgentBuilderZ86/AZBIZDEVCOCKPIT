@@ -50,14 +50,16 @@ export async function POST(req: NextRequest) {
         if (inserted) outcomesRecorded++;
       }
 
+      const features = buildScoreFeatures(c, signaux);
       const { heuristic, blended, learnedDelta } = computeBlendedScore(
         c,
         signaux,
-        learnedWeights
+        learnedWeights,
+        features
       );
       const next = pickCronScore(heuristic, blended, learnedWeights);
-      const features = {
-        ...buildScoreFeatures(c, signaux),
+      const featuresWithScores = {
+        ...features,
         heuristic,
         blended,
         learnedDelta,
@@ -70,7 +72,7 @@ export async function POST(req: NextRequest) {
           { journalSource: "cron" }
         );
         void journalCronScoreChange(c, c.scoreAdilStar, next).catch(() => {});
-        void recordScoreHistory(c, next, features, {
+        void recordScoreHistory(c, next, featuresWithScores, {
           ...learnedWeights,
         }).catch(() => {});
         changes.push({ compte: c.compte, from: c.scoreAdilStar, to: next });

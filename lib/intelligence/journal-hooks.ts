@@ -129,7 +129,8 @@ export async function journalCronScoreChange(
 /** Saisie manuelle (CR de RDV, note). */
 export async function journalManualNote(
   accountId: string,
-  payload: Record<string, unknown>
+  payload: Record<string, unknown>,
+  actor?: { userId?: string; userEmail?: string }
 ): Promise<string | null> {
   const compte = await resolveAccount(accountId);
   if (!compte?.url) return null;
@@ -138,6 +139,6 @@ export async function journalManualNote(
     accountId: compte.id,
     eventType: "interaction",
     source: "manuel",
-    payload,
+    payload: { ...payload, ...actor },
   });
 }
