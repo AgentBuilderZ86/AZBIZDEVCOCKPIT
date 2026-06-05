@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isIntelligenceEnabled } from "@/lib/intelligence/config";
 import { extractTextFromFile } from "@/lib/intelligence/extract-text";
+import { enqueueJob } from "@/lib/intelligence/jobs";
+import { JOB_KNOWLEDGE_INGEST } from "@/lib/intelligence/job-runner";
+import { chunkText } from "@/lib/intelligence/chunking";
 import {
   ingestKnowledgeDocument,
+  shouldQueueKnowledgeIngest,
   type KnowledgeSourceType,
 } from "@/lib/intelligence/knowledge";
 import { SECTEURS, type Secteur } from "@/lib/types";
@@ -63,7 +67,18 @@ export async function POST(req: NextRequest) {
     let outcome: "won" | "lost" | null = null;
     if (outcomeRaw === "won" || outcomeRaw === "lost") outcome = outcomeRaw;
 
-    const result = await ingestKnowledgeDocument({
+    const chunks = chunkText(rawText);
+    if (chunks.length === 0) {
+      return NextResponse.json(
+        {
+          error:
+            "Texte trop court ou vide après extraction (PDF scanné ou illisible ?).",
+        },
+        { status: 400 }
+      );
+    }
+
+    const ingestPayload = {
       title,
       rawText,
       sourceType,
@@ -71,7 +86,32 @@ export async function POST(req: NextRequest) {
       accountUrl,
       outcome,
       metadata: { ingestedAt: new Date().toISOString() },
-    });
+    };
+
+    if (shouldQueueKnowledgeIngest(chunks.length)) {
+      const jobId = await enqueueJob(JOB_KNOWLEDGE_INGEST, ingestPayload);
+      if (!jobId) {
+        return NextResponse.json(
+          { error: "Impossible d'enfiler le job d'indexation." },
+          { status: 500 }
+        );
+      }
+      void triggerJobWorker();
+
+      return NextResponse.json(
+        {
+          queued: true,
+          jobId,
+          title,
+          chunkCount: chunks.length,
+          message:
+            "Document volumineux — indexation en arrière-plan. Surveillez la progression…",
+        },
+        { status: 202 }
+      );
+    }
+
+    const result = await ingestKnowledgeDocument(ingestPayload);
 
     return NextResponse.json({ ok: true, ...result, title });
   } catch (err) {
@@ -79,6 +119,20 @@ export async function POST(req: NextRequest) {
     const status = clientErrorStatus(message);
     return NextResponse.json({ error: message }, { status });
   }
+}
+
+/** Déclenche le worker jobs (même déploiement, secret serveur). */
+function triggerJobWorker(): void {
+  const secret = process.env.CRON_SECRET?.trim();
+  const base =
+    process.env.URL?.trim() ||
+    process.env.DEPLOY_PRIME_URL?.trim() ||
+    process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (!secret || !base) return;
+  void fetch(`${base.replace(/\/$/, "")}/api/cron/jobs?limit=1`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${secret}` },
+  }).catch(() => {});
 }
 
 function clientErrorStatus(message: string): number {

@@ -155,3 +155,27 @@ export async function failJob(jobId: string, error: string): Promise<void> {
     WHERE id = ${jobId}::uuid
   `;
 }
+
+/** Statut d'un job pour polling client. */
+export async function getJobById(jobId: string): Promise<IntelligenceJob | null> {
+  if (!isIntelligenceEnabled()) return null;
+  const db = getDb();
+  const rows = await db<
+    {
+      id: string;
+      job_type: string;
+      idempotency_key: string | null;
+      payload: Record<string, unknown>;
+      status: JobStatus;
+      result: Record<string, unknown> | null;
+      error: string | null;
+      created_at: Date;
+      started_at: Date | null;
+      completed_at: Date | null;
+    }[]
+  >`
+    SELECT * FROM intelligence_jobs WHERE id = ${jobId}::uuid LIMIT 1
+  `;
+  const row = rows[0];
+  return row ? mapJob(row) : null;
+}

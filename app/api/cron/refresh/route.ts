@@ -2,16 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { assertCronAuthorized } from "@/lib/cron-auth";
 import { journalCronScoreChange } from "@/lib/intelligence/journal-hooks";
 import {
-  recordCronScoreSnapshot,
+  buildScoreFeatures,
   recordOutcomeEvent,
+  recordScoreHistory,
 } from "@/lib/intelligence/score-history";
+import {
+  computeBlendedScore,
+  loadLearnedWeights,
+  pickCronScore,
+} from "@/lib/intelligence/scoring-learn";
 import {
   listComptes,
   listOpportunitesByCompte,
   listSignauxByCompte,
   updateCompte,
 } from "@/lib/notion";
-import { computeHeuristicScore } from "@/lib/scoring";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -29,6 +34,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const comptes = await listComptes();
+    const learnedWeights = await loadLearnedWeights();
     let updated = 0;
     const changes: Array<{ compte: string; from: number | null; to: number }> = [];
 
@@ -44,7 +50,19 @@ export async function POST(req: NextRequest) {
         if (inserted) outcomesRecorded++;
       }
 
-      const next = computeHeuristicScore(c, signaux);
+      const { heuristic, blended, learnedDelta } = computeBlendedScore(
+        c,
+        signaux,
+        learnedWeights
+      );
+      const next = pickCronScore(heuristic, blended, learnedWeights);
+      const features = {
+        ...buildScoreFeatures(c, signaux),
+        heuristic,
+        blended,
+        learnedDelta,
+      };
+
       if (next !== c.scoreAdilStar) {
         await updateCompte(
           c.id,
@@ -52,7 +70,9 @@ export async function POST(req: NextRequest) {
           { journalSource: "cron" }
         );
         void journalCronScoreChange(c, c.scoreAdilStar, next).catch(() => {});
-        void recordCronScoreSnapshot(c, signaux, next).catch(() => {});
+        void recordScoreHistory(c, next, features, {
+          ...learnedWeights,
+        }).catch(() => {});
         changes.push({ compte: c.compte, from: c.scoreAdilStar, to: next });
         updated++;
       }
@@ -63,6 +83,7 @@ export async function POST(req: NextRequest) {
       scanned: comptes.length,
       updated,
       outcomesRecorded,
+      learned: learnedWeights,
       changes,
       at: new Date().toISOString(),
     });

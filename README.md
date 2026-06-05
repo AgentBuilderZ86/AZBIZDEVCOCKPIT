@@ -184,9 +184,12 @@ Sur **`/compte/[id]`** : timeline append-only (enrichissements, scores cron, sai
 
 API : `GET/POST /api/compte/[id]/journal`.
 
-### Phase 7 — Scoring apprenant (fondations)
+### Phase 7 — Scoring apprenant
 
-Tables `score_history` et `outcome_events` alimentées par le **cron** (`/api/cron/refresh`) à chaque changement de score et pour les opps **Won/Lost**. Prochaine étape : pondérations apprises à partir de l’historique.
+- Tables `score_history` + `outcome_events` (cron).
+- Ajustement **learned_v1** : compare signaux des comptes Won vs Lost ; blend 75/25 heuristique/appris si ≥3 outcomes de chaque côté.
+- Worker jobs : `POST /api/cron/jobs` (batch), statut `GET /api/intelligence/jobs/[id]`.
+- Gros documents (>10 chunks) : ingestion **async** (`202` + polling UI).
 
 ## Développement
 

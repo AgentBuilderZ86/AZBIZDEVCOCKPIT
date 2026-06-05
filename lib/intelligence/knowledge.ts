@@ -67,9 +67,19 @@ export async function listKnowledgeDocs(): Promise<KnowledgeDocSummary[]> {
   }));
 }
 
+/** Seuil au-delà duquel l'ingestion est mise en file (worker async). */
+export const INGEST_ASYNC_CHUNK_THRESHOLD = 10;
+export const INGEST_ASYNC_EMBED_MS = 18_000;
+
+export function shouldQueueKnowledgeIngest(chunkCount: number): boolean {
+  if (chunkCount > INGEST_ASYNC_CHUNK_THRESHOLD) return true;
+  return estimateVoyageEmbedDurationMs(chunkCount) > INGEST_ASYNC_EMBED_MS;
+}
+
 /** Ingère un document : chunk → embeddings → insert. */
 export async function ingestKnowledgeDocument(
-  input: IngestInput
+  input: IngestInput,
+  opts: { skipEmbedBudget?: boolean } = {}
 ): Promise<{ docId: string; chunkCount: number }> {
   const chunks = chunkText(input.rawText);
   if (chunks.length === 0) {
@@ -79,7 +89,7 @@ export async function ingestKnowledgeDocument(
   }
 
   const embedMs = estimateVoyageEmbedDurationMs(chunks.length);
-  if (embedMs > INGEST_EMBED_BUDGET_MS) {
+  if (!opts.skipEmbedBudget && embedMs > INGEST_EMBED_BUDGET_MS) {
     const delay = parseInt(process.env.VOYAGE_EMBED_BATCH_DELAY_MS ?? "0", 10) || 0;
     throw new Error(
       delay > 0
