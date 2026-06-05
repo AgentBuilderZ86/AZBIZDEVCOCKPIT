@@ -70,7 +70,7 @@ export function ComptesClient({ initial }: Props) {
   );
 
   /** Demande de confirmation avant archivage. */
-  const onArchiveRequest = React.useCallback((id: string) => {
+  const onArchiveRequest = React.useCallback(async (id: string) => {
     setPendingArchiveId(id);
   }, []);
 
