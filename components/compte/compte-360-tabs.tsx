@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { ExternalLink } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -38,8 +39,19 @@ function ExtLink({ url }: { url: string }) {
 }
 
 export function Compte360Tabs({ contacts, opportunites, signaux }: Props) {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const tab = searchParams.get("tab") ?? "contacts";
+
+  function onTabChange(value: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", value);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }
+
   return (
-    <Tabs defaultValue="contacts">
+    <Tabs value={tab} onValueChange={onTabChange}>
       <TabsList>
         <TabsTrigger value="contacts">Contacts · {contacts.length}</TabsTrigger>
         <TabsTrigger value="opps">Opportunités · {opportunites.length}</TabsTrigger>

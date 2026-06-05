@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Archive } from "lucide-react";
+import { Archive, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SelectCell } from "./inline-cell";
@@ -29,7 +29,15 @@ export function BoardView({ comptes, onUpdate, onArchive }: Props) {
   }, [comptes]);
 
   return (
-    <div className="flex gap-4 overflow-x-auto pb-4">
+    <div className="space-y-2">
+      {groups.length > 3 && (
+        <p className="flex items-center gap-1 text-xs text-muted-foreground">
+          <ChevronRight className="h-3 w-3" />
+          Défilement horizontal disponible
+        </p>
+      )}
+      <div className="relative">
+    <div className="flex gap-4 overflow-x-auto pb-4 scroll-smooth">
       {groups.map(([secteur, list]) => (
         <div key={secteur} className="w-72 shrink-0">
           <div className="mb-2 flex items-center justify-between px-1">
@@ -95,6 +103,9 @@ export function BoardView({ comptes, onUpdate, onArchive }: Props) {
           </div>
         </div>
       ))}
+    </div>
+    <div className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-background to-transparent" />
+    </div>
     </div>
   );
 }

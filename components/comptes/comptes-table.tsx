@@ -53,6 +53,7 @@ export function ComptesTable({ comptes, onUpdate, onArchive }: Props) {
   }
 
   return (
+    <div className="space-y-1">
     <div className="rounded-md border">
       <Table>
         <TableHeader>
@@ -146,7 +147,7 @@ export function ComptesTable({ comptes, onUpdate, onArchive }: Props) {
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7"
-                    title="Vue 360"
+                    aria-label={`Vue 360 de ${c.compte}`}
                   >
                     <Link href={`/compte/${c.id}`}>
                       <Eye className="h-4 w-4" />
@@ -161,7 +162,7 @@ export function ComptesTable({ comptes, onUpdate, onArchive }: Props) {
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7"
-                    title="Archiver (Statut → Dormante)"
+                    aria-label={`Archiver ${c.compte}`}
                     disabled={c.statutRelation === "Dormante"}
                     onClick={() => onArchive(c.id)}
                   >
@@ -173,7 +174,7 @@ export function ComptesTable({ comptes, onUpdate, onArchive }: Props) {
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7"
-                      title="Ouvrir dans Notion"
+                      aria-label={`Ouvrir ${c.compte} dans Notion`}
                     >
                       <Link href={c.url} target="_blank">
                         <ExternalLink className="h-4 w-4" />
@@ -186,6 +187,10 @@ export function ComptesTable({ comptes, onUpdate, onArchive }: Props) {
           ))}
         </TableBody>
       </Table>
+    </div>
+    <p className="text-xs text-muted-foreground">
+      Colonnes Compte, Score, ARR : cliquer pour modifier. Autres colonnes : liste déroulante.
+    </p>
     </div>
   );
 }
