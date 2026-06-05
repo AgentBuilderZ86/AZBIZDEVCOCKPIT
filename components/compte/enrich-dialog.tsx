@@ -51,6 +51,8 @@ export function EnrichDialog({ compteId }: Props) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
+  const [loadingStatus, setLoadingStatus] = React.useState<string>("");
+  const [loadingProgress, setLoadingProgress] = React.useState<number>(0);
   const [applying, setApplying] = React.useState(false);
   const [proposal, setProposal] = React.useState<EnrichmentProposal | null>(null);
 
@@ -59,16 +61,57 @@ export function EnrichDialog({ compteId }: Props) {
   const [contactUpdatesSel, setContactUpdatesSel] = React.useState<boolean[]>([]);
   const [signauxSel, setSignauxSel] = React.useState<boolean[]>([]);
 
+  async function pollEnrichJob(jobId: string): Promise<EnrichmentProposal> {
+    const maxAttempts = 30; // 30 × 3s = 90s max
+    const steps = [
+      "Interrogation des sources Apollo…",
+      "Recherche Hunter & contacts…",
+      "Analyse Claude en cours…",
+      "Assemblage de la proposition…",
+    ];
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise((r) => setTimeout(r, 3000));
+      setLoadingProgress(Math.min(90, Math.round(((i + 1) / maxAttempts) * 100)));
+      setLoadingStatus(steps[Math.min(i, steps.length - 1)]);
+      const res = await fetch(`/api/intelligence/jobs/${jobId}`);
+      const job = await parseApiJson(res);
+      if (!res.ok) throw new Error(String(job.error ?? "Job introuvable."));
+      if (job.status === "done") {
+        const result = job.result as { proposal?: EnrichmentProposal } | null;
+        if (!result?.proposal) throw new Error("Proposition absente du résultat.");
+        return result.proposal;
+      }
+      if (job.status === "failed") {
+        throw new Error(String(job.error ?? "Échec de l'enrichissement."));
+      }
+    }
+    throw new Error("Délai dépassé — l'enrichissement a pris trop de temps. Réessayez.");
+  }
+
   async function runEnrich() {
     setOpen(true);
     setLoading(true);
     setProposal(null);
+    setLoadingProgress(0);
+    setLoadingStatus("Lancement de l'enrichissement…");
     try {
-      const res = await fetch(`/api/comptes/${compteId}/enrich`, {
-        method: "POST",
-      });
+      const res = await fetch(`/api/comptes/${compteId}/enrich`, { method: "POST" });
       const data = await parseApiJson(res);
       if (!res.ok) throw new Error(data.error ?? "Échec de l'enrichissement.");
+
+      // Le POST retourne maintenant 202 + jobId — on poll le job.
+      if (res.status === 202 && data.queued && data.jobId) {
+        toast.info(String(data.message ?? "Enrichissement en cours…"));
+        const p = await pollEnrichJob(String(data.jobId));
+        setProposal(p);
+        setFields(new Set(Object.keys(p.proposed) as FieldKey[]));
+        setContactsSel(p.newContacts.map(() => true));
+        setContactUpdatesSel((p.contactUpdates ?? []).map(() => true));
+        setSignauxSel(p.newSignaux.map(() => true));
+        return;
+      }
+
+      // Fallback synchrone (si intelligence désactivée côté route)
       const p = data.proposal as EnrichmentProposal;
       setProposal(p);
       setFields(new Set(Object.keys(p.proposed) as FieldKey[]));
@@ -80,6 +123,8 @@ export function EnrichDialog({ compteId }: Props) {
       setOpen(false);
     } finally {
       setLoading(false);
+      setLoadingProgress(0);
+      setLoadingStatus("");
     }
   }
 
@@ -160,8 +205,30 @@ export function EnrichDialog({ compteId }: Props) {
           </DialogHeader>
 
           {loading && (
-            <div className="py-10 text-center text-sm text-muted-foreground">
-              Apollo + Claude en cours d&apos;analyse…
+            <div className="space-y-4 py-8">
+              <div className="text-center">
+                <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                  <Sparkles className="h-5 w-5 animate-pulse text-primary" />
+                </div>
+                <p className="text-sm font-medium text-foreground">
+                  {loadingStatus || "Enrichissement en cours…"}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Apollo · Hunter · Claude — 20–40 secondes
+                </p>
+              </div>
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Progression</span>
+                  <span>{loadingProgress}%</span>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full bg-primary transition-all duration-700"
+                    style={{ width: `${loadingProgress}%` }}
+                  />
+                </div>
+              </div>
             </div>
           )}
 
