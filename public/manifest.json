@@ -1,0 +1,17 @@
+{
+  "name": "AZ BizDev OS — Cockpit Comptes",
+  "short_name": "BizDev OS",
+  "description": "Pilotage du portefeuille de comptes BizDev",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon"
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Toaster } from "@/components/ui/sonner";
 import { AppNav } from "@/components/layout/app-nav";
 import "./globals.css";
@@ -6,6 +6,14 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Cockpit Comptes — Adil BizDev OS",
   description: "Pilotage du portefeuille de comptes BizDev (source de vérité : Notion).",
+  manifest: "/manifest.json",
+  icons: { icon: "/favicon.ico" },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#0f172a",
 };
 
 export default function RootLayout({

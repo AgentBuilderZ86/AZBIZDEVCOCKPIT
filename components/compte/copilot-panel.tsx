@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { MessageCircle, Send } from "lucide-react";
+import { MessageCircle, Mic, MicOff, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,6 +13,7 @@ import type {
   CopilotMessage,
 } from "@/lib/intelligence/copilot-types";
 import { citationTypeLabel } from "@/lib/intelligence/copilot-types";
+import { useVoiceInput } from "@/hooks/use-voice-input";
 
 interface Props {
   compteId: string;
@@ -52,6 +53,10 @@ export function CopilotPanel({
   const [question, setQuestion] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [messages, setMessages] = React.useState<CopilotMessage[]>([]);
+
+  const voice = useVoiceInput((final) => {
+    setQuestion((prev) => (prev ? prev + " " + final : final).trim());
+  });
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -128,17 +133,35 @@ export function CopilotPanel({
 
         <form onSubmit={submit} className="space-y-2">
           <Textarea
-            value={question}
+            value={voice.state === "recording" ? (question + (voice.transcript ? " " + voice.transcript : "")).trim() : question}
             onChange={(e) => setQuestion(e.target.value)}
             placeholder="Ex. Quelles références Sia sur un compte Banque similaire ont converti ?"
-            rows={3}
+            rows={2}
             disabled={!enabled || loading}
-            className="text-sm"
+            className="min-h-[4rem] text-sm sm:rows-3"
           />
-          <Button type="submit" size="sm" disabled={!enabled || loading || !question.trim()}>
-            <Send className="h-3.5 w-3.5" />
-            {loading ? "Réflexion…" : "Demander au copilote"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button type="submit" size="sm" className="h-10 px-4" disabled={!enabled || loading || !question.trim()}>
+              <Send className="h-3.5 w-3.5" />
+              {loading ? "Réflexion…" : "Demander"}
+            </Button>
+            {voice.supported && (
+              <Button
+                type="button"
+                size="sm"
+                variant={voice.state === "recording" ? "destructive" : "outline"}
+                className="h-10 px-3"
+                disabled={!enabled || loading}
+                title={voice.state === "recording" ? "Arrêter l'enregistrement" : "Dicter votre question"}
+                onClick={() => {
+                  if (voice.state === "recording") voice.stop();
+                  else { voice.reset(); voice.start(); }
+                }}
+              >
+                {voice.state === "recording" ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+              </Button>
+            )}
+          </div>
         </form>
       </CardContent>
     </Card>

@@ -61,31 +61,58 @@ export function EnrichDialog({ compteId }: Props) {
   const [contactUpdatesSel, setContactUpdatesSel] = React.useState<boolean[]>([]);
   const [signauxSel, setSignauxSel] = React.useState<boolean[]>([]);
 
-  async function pollEnrichJob(jobId: string): Promise<EnrichmentProposal> {
-    const maxAttempts = 30; // 30 × 3s = 90s max
-    const steps = [
+  async function pollJob(jobId: string): Promise<Record<string, unknown>> {
+    const res = await fetch(`/api/intelligence/jobs/${jobId}`);
+    const job = await parseApiJson(res);
+    if (!res.ok) throw new Error(String(job.error ?? "Job introuvable."));
+    if (job.status === "failed") throw new Error(String(job.error ?? "Échec de l'enrichissement."));
+    return job as Record<string, unknown>;
+  }
+
+  async function pollEnrichJob(dataJobId: string): Promise<EnrichmentProposal> {
+    // Phase A : poll enrich.data (~35-50s) — 20 tentatives × 3s = 60s
+    const phaseASteps = [
       "Interrogation des sources Apollo…",
+      "Recherche web (LinkedIn / Charika)…",
       "Recherche Hunter & contacts…",
-      "Analyse Claude en cours…",
+      "Révélation des téléphones…",
+    ];
+    for (let i = 0; i < 20; i++) {
+      await new Promise((r) => setTimeout(r, 3000));
+      setLoadingProgress(Math.round(((i + 1) / 20) * 45)); // 0 → 45%
+      setLoadingStatus(phaseASteps[Math.min(i, phaseASteps.length - 1)]);
+
+      const job = await pollJob(dataJobId);
+      if (job.status === "done") {
+        const result = job.result as { intelJobId?: string } | null;
+        if (!result?.intelJobId) throw new Error("Job intel introuvable dans le résultat.");
+        // Phase B : poll enrich.intel (~15-25s) — 20 tentatives × 3s = 60s
+        return pollEnrichIntel(String(result.intelJobId));
+      }
+    }
+    throw new Error("Délai dépassé (phase données). Réessayez.");
+  }
+
+  async function pollEnrichIntel(intelJobId: string): Promise<EnrichmentProposal> {
+    const phaseBSteps = [
+      "Analyse Claude Opus en cours…",
+      "Calcul du score AdilStar…",
+      "Rédaction du plan stratégique…",
       "Assemblage de la proposition…",
     ];
-    for (let i = 0; i < maxAttempts; i++) {
+    for (let i = 0; i < 20; i++) {
       await new Promise((r) => setTimeout(r, 3000));
-      setLoadingProgress(Math.min(90, Math.round(((i + 1) / maxAttempts) * 100)));
-      setLoadingStatus(steps[Math.min(i, steps.length - 1)]);
-      const res = await fetch(`/api/intelligence/jobs/${jobId}`);
-      const job = await parseApiJson(res);
-      if (!res.ok) throw new Error(String(job.error ?? "Job introuvable."));
+      setLoadingProgress(45 + Math.round(((i + 1) / 20) * 50)); // 45 → 95%
+      setLoadingStatus(phaseBSteps[Math.min(i, phaseBSteps.length - 1)]);
+
+      const job = await pollJob(intelJobId);
       if (job.status === "done") {
         const result = job.result as { proposal?: EnrichmentProposal } | null;
         if (!result?.proposal) throw new Error("Proposition absente du résultat.");
         return result.proposal;
       }
-      if (job.status === "failed") {
-        throw new Error(String(job.error ?? "Échec de l'enrichissement."));
-      }
     }
-    throw new Error("Délai dépassé — l'enrichissement a pris trop de temps. Réessayez.");
+    throw new Error("Délai dépassé (analyse Claude). Réessayez.");
   }
 
   async function runEnrich() {
