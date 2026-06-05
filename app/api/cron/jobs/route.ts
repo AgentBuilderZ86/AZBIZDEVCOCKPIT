@@ -1,0 +1,67 @@
+import { NextRequest, NextResponse } from "next/server";
+import { assertCronAuthorized } from "@/lib/cron-auth";
+import { claimNextJob, failJob } from "@/lib/intelligence/jobs";
+import { runIntelligenceJob } from "@/lib/intelligence/job-runner";
+import { isIntelligenceEnabled } from "@/lib/intelligence/config";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+export const maxDuration = 120;
+
+const DEFAULT_BATCH = 3;
+
+/**
+ * Traite les jobs intelligence_jobs en attente (ingestion async, etc.).
+ * Appeler depuis un cron Netlify ou après scheduled-refresh.
+ */
+export async function POST(req: NextRequest) {
+  const denied = assertCronAuthorized(req);
+  if (denied) return denied;
+
+  if (!isIntelligenceEnabled()) {
+    return NextResponse.json(
+      { error: "DATABASE_URL absente — jobs inactifs." },
+      { status: 503 }
+    );
+  }
+
+  const limit = Math.min(
+    10,
+    Math.max(1, parseInt(req.nextUrl.searchParams.get("limit") ?? String(DEFAULT_BATCH), 10) || DEFAULT_BATCH)
+  );
+
+  const processed: Array<{
+    id: string;
+    jobType: string;
+    status: "done" | "failed";
+    error?: string;
+  }> = [];
+
+  for (let i = 0; i < limit; i++) {
+    const job = await claimNextJob();
+    if (!job) break;
+
+    try {
+      await runIntelligenceJob(job);
+      processed.push({ id: job.id, jobType: job.jobType, status: "done" });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Erreur job.";
+      await failJob(job.id, message);
+      processed.push({
+        id: job.id,
+        jobType: job.jobType,
+        status: "failed",
+        error: message,
+      });
+    }
+  }
+
+  return NextResponse.json({
+    ok: true,
+    processed: processed.length,
+    jobs: processed,
+    at: new Date().toISOString(),
+  });
+}
+
+export const GET = POST;

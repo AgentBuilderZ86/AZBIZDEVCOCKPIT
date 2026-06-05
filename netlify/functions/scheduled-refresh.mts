@@ -13,17 +13,28 @@ export default async function handler() {
     return new Response("URL du site indisponible.", { status: 500 });
   }
 
+  const headers = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${process.env.CRON_SECRET ?? ""}`,
+  };
+
   const res = await fetch(`${base}/api/cron/refresh`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${process.env.CRON_SECRET ?? ""}`,
-    },
+    headers,
   });
 
   const body = await res.text();
   // eslint-disable-next-line no-console
   console.log(`[scheduled-refresh] ${res.status}: ${body.slice(0, 500)}`);
+
+  const jobsRes = await fetch(`${base}/api/cron/jobs?limit=5`, {
+    method: "POST",
+    headers,
+  });
+  const jobsBody = await jobsRes.text();
+  // eslint-disable-next-line no-console
+  console.log(`[scheduled-refresh] jobs ${jobsRes.status}: ${jobsBody.slice(0, 300)}`);
+
   return new Response(body, { status: res.status });
 }
 

@@ -41,6 +41,32 @@ async function parseApiJson(res: Response): Promise<{ error?: string; [key: stri
   }
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function pollIngestJob(jobId: string, docTitle: string): Promise<void> {
+  const maxAttempts = 40;
+  for (let i = 0; i < maxAttempts; i++) {
+    await sleep(3000);
+    const res = await fetch(`/api/intelligence/jobs/${jobId}`);
+    const job = await parseApiJson(res);
+    if (!res.ok) throw new Error(String(job.error ?? "Job introuvable."));
+    if (job.status === "done") {
+      const result = job.result as { chunkCount?: number } | undefined;
+      const chunks = result?.chunkCount ?? "?";
+      toast.success(`Indexé : « ${docTitle} » — ${chunks} chunk(s).`);
+      return;
+    }
+    if (job.status === "failed") {
+      throw new Error(String(job.error ?? "Échec indexation."));
+    }
+  }
+  throw new Error(
+    "Indexation trop longue — réessayez plus tard ou scindez le document."
+  );
+}
+
 export function ConnaissanceClient({ intelligenceEnabled, initialDocs }: Props) {
   const [docs, setDocs] = React.useState(initialDocs);
   const [uploading, setUploading] = React.useState(false);
@@ -76,7 +102,21 @@ export function ConnaissanceClient({ intelligenceEnabled, initialDocs }: Props) 
         body: fd,
       });
       const data = await parseApiJson(res);
-      if (!res.ok) throw new Error(data.error ?? "Échec ingestion.");
+
+      if (res.status === 202 && data.queued && data.jobId) {
+        toast.info(
+          typeof data.message === "string"
+            ? data.message
+            : "Indexation en cours…"
+        );
+        await pollIngestJob(String(data.jobId), String(data.title ?? title));
+        form.reset();
+        setTitle("");
+        await refreshDocs();
+        return;
+      }
+
+      if (!res.ok) throw new Error(String(data.error ?? "Échec ingestion."));
       toast.success(
         `Indexé : « ${data.title} » — ${data.chunkCount} chunk(s).`
       );

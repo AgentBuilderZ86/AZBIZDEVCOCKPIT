@@ -84,13 +84,3 @@ export async function recordOutcomeEvent(
   `;
   return true;
 }
-
-/** Sync outcomes + historique score lors du cron (Phase 7). */
-export async function recordCronScoreSnapshot(
-  compte: Compte,
-  signaux: Signal[],
-  newScore: number
-): Promise<void> {
-  const features = buildScoreFeatures(compte, signaux);
-  await recordScoreHistory(compte, newScore, features);
-}
