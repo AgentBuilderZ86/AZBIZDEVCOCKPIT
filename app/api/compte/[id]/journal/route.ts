@@ -22,7 +22,13 @@ export async function GET(
   try {
     const compte = await getCompte(params.id);
     const events = await listAccountJournal(compte.url, 50);
-    return NextResponse.json({ enabled: true, events });
+    return NextResponse.json({
+      enabled: true,
+      events: events.map((e) => ({
+        ...e,
+        eventDate: e.eventDate.toISOString(),
+      })),
+    });
   } catch (err) {
     return errorResponse(err);
   }
