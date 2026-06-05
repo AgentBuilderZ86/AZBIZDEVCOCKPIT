@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { listComptes } from "@/lib/notion";
 import { ComptesClient } from "@/components/comptes/comptes-client";
 import type { Compte } from "@/lib/types";
@@ -18,10 +17,7 @@ export default async function ComptesPage() {
   return (
     <main className="container mx-auto max-w-7xl py-8">
       <header className="mb-6">
-        <Link href="/" className="text-sm text-muted-foreground hover:underline">
-          ← Cockpit
-        </Link>
-        <h1 className="mt-1 text-2xl font-bold">Plan de comptes</h1>
+        <h1 className="text-2xl font-bold">Plan de comptes</h1>
         <p className="text-sm text-muted-foreground">
           Édition inline — chaque modification est répercutée dans Notion.
         </p>

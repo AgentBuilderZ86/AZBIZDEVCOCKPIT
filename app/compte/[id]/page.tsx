@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { ArrowLeft, ExternalLink, FileDown, Zap } from "lucide-react";
 import { getCompte360 } from "@/lib/notion";
 import { resolveNextBestAction } from "@/lib/next-best-action-ai";
@@ -71,10 +72,6 @@ export default async function ComptePage({ params }: { params: { id: string } })
 
   return (
     <main className="container mx-auto max-w-6xl py-8">
-      <Link href="/comptes" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:underline">
-        <ArrowLeft className="h-4 w-4" /> Plan de comptes
-      </Link>
-
       {/* Entête */}
       <header className="mt-3 flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -145,25 +142,37 @@ export default async function ComptePage({ params }: { params: { id: string } })
       {/* Corps : tabs + plan stratégique */}
       <section className="mt-6 grid gap-6 lg:grid-cols-[2fr_1fr]">
         <div>
-          <Compte360Tabs contacts={contacts} opportunites={opportunites} signaux={signaux} />
+          <Suspense fallback={<div className="h-48 animate-pulse rounded-md bg-muted" />}>
+            <Compte360Tabs contacts={contacts} opportunites={opportunites} signaux={signaux} />
+          </Suspense>
         </div>
-        <div>
-          <h2 className="mb-2 text-sm font-semibold text-muted-foreground">Plan stratégique compte</h2>
-          <PlanBlock compteId={compte.id} initial={compte.planStrategique} />
-          {compte.notes && (
-            <div className="mt-4">
-              <h3 className="mb-1 text-sm font-semibold text-muted-foreground">Notes</h3>
-              <p className="whitespace-pre-wrap rounded-md border bg-muted/30 p-3 text-sm">{compte.notes}</p>
-            </div>
-          )}
-          <CompteIntelligenceAside
-            compteId={compte.id}
-            compteName={compte.compte}
-            intelligenceOn={intelligenceOn}
-            copilotEnabled={copilotEnabled}
-            intelligenceDisabledReason={intelligenceDisabledReason}
-            copilotDisabledReason={copilotDisabledReason}
-          />
+        <div className="space-y-4">
+          <div>
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Plan stratégique
+            </h2>
+            <PlanBlock compteId={compte.id} initial={compte.planStrategique} />
+            {compte.notes && (
+              <div className="mt-4">
+                <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notes</h3>
+                <p className="whitespace-pre-wrap rounded-md border bg-muted/30 p-3 text-sm">{compte.notes}</p>
+              </div>
+            )}
+          </div>
+          <hr className="border-dashed" />
+          <div>
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Intelligence &amp; Activité
+            </h2>
+            <CompteIntelligenceAside
+              compteId={compte.id}
+              compteName={compte.compte}
+              intelligenceOn={intelligenceOn}
+              copilotEnabled={copilotEnabled}
+              intelligenceDisabledReason={intelligenceDisabledReason}
+              copilotDisabledReason={copilotDisabledReason}
+            />
+          </div>
         </div>
       </section>
     </main>

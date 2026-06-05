@@ -84,7 +84,7 @@ export function FiltersBar({ filters, onChange, view, onViewChange, count }: Pro
           size="icon"
           className="h-8 w-8 rounded-r-none"
           onClick={() => onViewChange("table")}
-          title="Vue tableau"
+          aria-label="Vue tableau"
         >
           <TableIcon className="h-4 w-4" />
         </Button>
@@ -93,7 +93,7 @@ export function FiltersBar({ filters, onChange, view, onViewChange, count }: Pro
           size="icon"
           className="h-8 w-8 rounded-l-none"
           onClick={() => onViewChange("board")}
-          title="Vue board par secteur"
+          aria-label="Vue board par secteur"
         >
           <LayoutGrid className="h-4 w-4" />
         </Button>

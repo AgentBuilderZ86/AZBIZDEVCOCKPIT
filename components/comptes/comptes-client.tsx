@@ -6,6 +6,15 @@ import { FiltersBar, type FilterState } from "./filters-bar";
 import { ComptesTable } from "./comptes-table";
 import { BoardView } from "./board-view";
 import { NewCompteDialog } from "./new-compte-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import type { Compte, CompteUpdate } from "@/lib/types";
 
 interface Props {
@@ -23,6 +32,8 @@ export function ComptesClient({ initial }: Props) {
   const [comptes, setComptes] = React.useState<Compte[]>(initial);
   const [filters, setFilters] = React.useState<FilterState>(EMPTY_FILTERS);
   const [view, setView] = React.useState<"table" | "board">("table");
+  const [pendingArchiveId, setPendingArchiveId] = React.useState<string | null>(null);
+  const [archiving, setArchiving] = React.useState(false);
 
   /** Optimistic update + write-back Notion + rollback en cas d'échec. */
   const onUpdate = React.useCallback(
@@ -58,14 +69,25 @@ export function ComptesClient({ initial }: Props) {
     [comptes]
   );
 
-  const onArchive = React.useCallback(async (id: string) => {
+  /** Demande de confirmation avant archivage. */
+  const onArchiveRequest = React.useCallback((id: string) => {
+    setPendingArchiveId(id);
+  }, []);
+
+  /** Exécute l'archivage après confirmation. */
+  const confirmArchive = React.useCallback(async () => {
+    const id = pendingArchiveId;
+    if (!id) return;
     const before = comptes.find((c) => c.id === id);
     if (!before) return;
+
+    setArchiving(true);
     setComptes((prev) =>
       prev.map((c) =>
         c.id === id ? { ...c, statutRelation: "Dormante" } : c
       )
     );
+
     try {
       const res = await fetch(`/api/comptes/${id}`, {
         method: "PATCH",
@@ -81,9 +103,12 @@ export function ComptesClient({ initial }: Props) {
     } catch (err) {
       setComptes((prev) => prev.map((c) => (c.id === id ? before : c)));
       toast.error(err instanceof Error ? err.message : "Erreur d'archivage.");
+    } finally {
+      setArchiving(false);
+      setPendingArchiveId(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [comptes]);
+  }, [pendingArchiveId, comptes]);
 
   const onCreated = React.useCallback((compte: Compte) => {
     setComptes((prev) => [compte, ...prev]);
@@ -100,6 +125,10 @@ export function ComptesClient({ initial }: Props) {
     });
   }, [comptes, filters]);
 
+  const pendingCompteName = pendingArchiveId
+    ? comptes.find((c) => c.id === pendingArchiveId)?.compte ?? "ce compte"
+    : null;
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
@@ -114,10 +143,43 @@ export function ComptesClient({ initial }: Props) {
       </div>
 
       {view === "table" ? (
-        <ComptesTable comptes={filtered} onUpdate={onUpdate} onArchive={onArchive} />
+        <ComptesTable comptes={filtered} onUpdate={onUpdate} onArchive={onArchiveRequest} />
       ) : (
-        <BoardView comptes={filtered} onUpdate={onUpdate} onArchive={onArchive} />
+        <BoardView comptes={filtered} onUpdate={onUpdate} onArchive={onArchiveRequest} />
       )}
+
+      {/* Dialog de confirmation d'archivage */}
+      <Dialog
+        open={pendingArchiveId !== null}
+        onOpenChange={(open) => { if (!open && !archiving) setPendingArchiveId(null); }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Archiver ce compte ?</DialogTitle>
+            <DialogDescription>
+              <strong>{pendingCompteName}</strong> sera marqué comme{" "}
+              <em>Dormante</em> dans Notion. Vous pouvez modifier le statut
+              manuellement pour annuler l&apos;opération.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setPendingArchiveId(null)}
+              disabled={archiving}
+            >
+              Annuler
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmArchive}
+              disabled={archiving}
+            >
+              {archiving ? "Archivage…" : "Archiver"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
