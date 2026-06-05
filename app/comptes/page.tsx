@@ -15,12 +15,12 @@ export default async function ComptesPage() {
   }
 
   return (
-    <main className="container mx-auto max-w-7xl py-8">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">Plan de comptes</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Édition inline — chaque modification est répercutée dans Notion.
-        </p>
+    <main className="container mx-auto max-w-7xl py-4 px-4">
+      <header className="mb-3 flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Plan de comptes</h1>
+          <p className="text-sm text-muted-foreground">Édition inline — modifications répercutées dans Notion.</p>
+        </div>
       </header>
 
       {error ? (

@@ -71,9 +71,9 @@ export default async function ComptePage({ params }: { params: { id: string } })
       : undefined;
 
   return (
-    <main className="container mx-auto max-w-6xl py-8">
+    <main className="container mx-auto max-w-6xl py-4 px-4">
       {/* Entête */}
-      <header className="mt-1 flex flex-wrap items-start justify-between gap-4">
+      <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold">{compte.compte || "—"}</h1>
@@ -114,7 +114,7 @@ export default async function ComptePage({ params }: { params: { id: string } })
       </header>
 
       {/* Firmo / KPIs */}
-      <section className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+      <section className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
         <Kpi label="Score AdilStar" value={compte.scoreAdilStar != null ? `★ ${compte.scoreAdilStar}` : "—"} />
         <Kpi label="ARR pondéré (k€)" value={compte.arrPondere != null ? String(compte.arrPondere) : "—"} />
         <Kpi label="Pipeline opps (k€)" value={pipeline ? pipeline.toFixed(1) : "—"} />
@@ -124,7 +124,7 @@ export default async function ComptePage({ params }: { params: { id: string } })
       </section>
 
       {/* Next Best Action */}
-      <section className="mt-5">
+      <section className="mt-3">
         <Card className={cn("border", URGENCY_STYLES[nba.urgency])}>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm">
@@ -140,7 +140,7 @@ export default async function ComptePage({ params }: { params: { id: string } })
       </section>
 
       {/* Corps : tabs + plan stratégique */}
-      <section className="mt-6 grid gap-6 lg:grid-cols-[2fr_1fr]">
+      <section className="mt-4 grid gap-4 lg:grid-cols-[2fr_1fr]">
         <div>
           <Suspense fallback={<div className="h-48 animate-pulse rounded-md bg-muted" />}>
             <Compte360Tabs contacts={contacts} opportunites={opportunites} signaux={signaux} />

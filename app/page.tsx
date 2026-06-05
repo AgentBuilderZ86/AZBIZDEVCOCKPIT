@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Building2, TrendingUp, Flame, Clock, ChevronRight } from "lucide-react";
+import { ArrowRight, Building2, TrendingUp, Flame, Clock, ChevronRight, Map, BookMarked } from "lucide-react";
 import { listComptes } from "@/lib/notion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,11 +23,15 @@ export default async function HomePage() {
   const arrTotal = comptes.reduce((s, c) => s + (c.arrPondere ?? 0), 0);
   const hot = comptes.filter((c) => c.stage === "Hot" || c.stage === "Active").length;
   const dormants = comptes.filter((c) => c.statutRelation === "Dormante").length;
+  const avgScore = comptes.length
+    ? Math.round(comptes.reduce((s, c) => s + (c.scoreAdilStar ?? 0), 0) / comptes.length)
+    : 0;
+  const openOpps = comptes.filter((c) => c.stage === "Hot" || c.stage === "Warm").length;
 
   const prioritaires = comptes
     .filter((c) => c.priorite === "🔴 Haute" || c.stage === "Hot")
     .sort((a, b) => (b.scoreAdilStar ?? 0) - (a.scoreAdilStar ?? 0))
-    .slice(0, 5);
+    .slice(0, 6);
 
   const stats = [
     { label: "Comptes suivis", value: String(total), icon: Building2, color: "#3b5ff0" },
@@ -37,25 +41,40 @@ export default async function HomePage() {
   ];
 
   return (
-    <main className="container mx-auto max-w-5xl py-10">
+    <main className="container mx-auto max-w-6xl py-6 px-4">
 
-      {/* Hero */}
-      <header className="mb-10">
-        <div className="mb-3 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium"
-          style={{
-            background: "linear-gradient(135deg, hsl(231 72% 38% / 0.08) 0%, hsl(231 60% 55% / 0.05) 100%)",
-            border: "1px solid hsl(231 72% 38% / 0.18)",
-            color: "hsl(231 72% 36%)",
-          }}>
-          <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-          Adil BizDev OS · Données Notion en temps réel
+      {/* Hero — compact */}
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            Cockpit commercial
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Vision unifiée du portefeuille — enrichissement IA, scoring et plan stratégique.
+          </p>
         </div>
-        <h1 className="text-4xl font-bold tracking-tight text-foreground">
-          Cockpit commercial
-        </h1>
-        <p className="mt-2 text-base text-muted-foreground max-w-xl">
-          Vision unifiée du portefeuille comptes — enrichissement IA, scoring et plan stratégique.
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            asChild
+            size="sm"
+            className="gap-1.5 font-medium shadow-sm"
+            style={{
+              background: "linear-gradient(135deg, hsl(231 72% 42%) 0%, hsl(231 72% 32%) 100%)",
+              boxShadow: "0 1px 3px hsl(231 72% 20% / 0.3), inset 0 1px 0 hsl(231 50% 60% / 0.2)",
+              border: "1px solid hsl(231 72% 30%)",
+            }}
+          >
+            <Link href="/comptes">
+              Plan de comptes <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm" className="font-medium gap-1.5">
+            <Link href="/roadmap"><Map className="h-3.5 w-3.5" /> Roadmap</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm" className="font-medium gap-1.5">
+            <Link href="/methodologie"><BookMarked className="h-3.5 w-3.5" /> Méthode</Link>
+          </Button>
+        </div>
       </header>
 
       {error ? (
@@ -66,17 +85,14 @@ export default async function HomePage() {
       ) : (
         <>
           {/* KPI Cards */}
-          <section className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <section className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {stats.map(({ label, value, icon: Icon, color }) => (
               <div key={label} className="stat-card group transition-all duration-200">
-                <div className="mb-3 flex items-center justify-between">
+                <div className="mb-2 flex items-center justify-between">
                   <p className="text-xs font-medium text-muted-foreground">{label}</p>
                   <span
                     className="flex h-7 w-7 items-center justify-center rounded-lg"
-                    style={{
-                      background: `${color}14`,
-                      border: `1px solid ${color}28`,
-                    }}
+                    style={{ background: `${color}14`, border: `1px solid ${color}28` }}
                   >
                     <Icon className="h-3.5 w-3.5" style={{ color }} />
                   </span>
@@ -86,127 +102,97 @@ export default async function HomePage() {
             ))}
           </section>
 
-          {/* CTA principal */}
-          <div className="mb-8 flex flex-wrap items-center gap-2">
-            <Button
-              asChild
-              className="gap-2 font-medium shadow-sm"
-              style={{
-                background: "linear-gradient(135deg, hsl(231 72% 42%) 0%, hsl(231 72% 32%) 100%)",
-                boxShadow: "0 1px 3px hsl(231 72% 20% / 0.3), 0 4px 14px hsl(231 72% 38% / 0.25), inset 0 1px 0 hsl(231 50% 60% / 0.2)",
-                border: "1px solid hsl(231 72% 30%)",
-              }}
-            >
-              <Link href="/comptes">
-                Plan de comptes
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="font-medium">
-              <Link href="/connaissance">Base de connaissance</Link>
-            </Button>
-          </div>
+          {/* 2-col layout : Comptes prioritaires + Tableau de bord rapide */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_280px]">
 
-          {/* Comptes prioritaires */}
-          {prioritaires.length > 0 && (
-            <section className="mb-8">
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-foreground">
-                  Comptes prioritaires à activer
-                </h2>
-                <Link
-                  href="/comptes"
-                  className="flex items-center gap-0.5 text-xs font-medium text-primary hover:underline"
-                >
-                  Voir tous <ChevronRight className="h-3.5 w-3.5" />
-                </Link>
-              </div>
-              <ul className="space-y-1.5">
-                {prioritaires.map((c) => (
-                  <li key={c.id}>
-                    <Link
-                      href={`/compte/${c.id}`}
-                      className="flex items-center justify-between gap-3 rounded-xl border bg-white/70 px-4 py-3 text-sm backdrop-blur-sm transition-all duration-150 hover:bg-white hover:shadow-sm hover:border-primary/20"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span
-                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white"
-                          style={{
-                            background: "linear-gradient(135deg, hsl(231 72% 42%) 0%, hsl(231 72% 30%) 100%)",
-                          }}
-                        >
-                          {(c.compte || "?")[0].toUpperCase()}
-                        </span>
-                        <span className="truncate font-medium text-foreground">{c.compte || "—"}</span>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        {c.secteur && (
-                          <Badge variant="outline" className="hidden font-normal sm:flex text-xs">
-                            {c.secteur}
-                          </Badge>
-                        )}
-                        {c.stage && (
-                          <Badge className={cn("font-normal text-xs", valueBadgeClass(c.stage))}>
-                            {c.stage}
-                          </Badge>
-                        )}
-                        {c.priorite && (
-                          <Badge className={cn("font-normal text-xs", valueBadgeClass(c.priorite))}>
-                            {c.priorite}
-                          </Badge>
-                        )}
-                      </div>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {/* Liste complète (aperçu) */}
-          <section>
-            <h2 className="mb-3 text-sm font-semibold text-muted-foreground">
-              Tous les comptes · aperçu
-            </h2>
-            <ul className="divide-y rounded-xl border bg-white/60 backdrop-blur-sm overflow-hidden">
-              {comptes.length === 0 && (
-                <li className="p-4 text-sm text-muted-foreground">
-                  Aucun compte trouvé dans la base Notion.
-                </li>
-              )}
-              {comptes.slice(0, 12).map((c) => (
-                <li key={c.id}>
-                  <Link
-                    href={`/compte/${c.id}`}
-                    className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-muted/30"
-                  >
-                    <span className="font-medium truncate">{c.compte || "—"}</span>
-                    <div className="flex shrink-0 items-center gap-1.5">
-                      {c.secteur && (
-                        <Badge variant="outline" className="hidden font-normal sm:flex text-xs">
-                          {c.secteur}
-                        </Badge>
-                      )}
-                      {c.stage && (
-                        <Badge className={cn("font-normal text-xs", badgeClass("stage", c.stage))}>
-                          {c.stage}
-                        </Badge>
-                      )}
-                    </div>
+            {/* Colonne gauche : Comptes prioritaires */}
+            {prioritaires.length > 0 && (
+              <section>
+                <div className="mb-2.5 flex items-center justify-between">
+                  <h2 className="text-sm font-semibold text-foreground">Comptes prioritaires</h2>
+                  <Link href="/comptes" className="flex items-center gap-0.5 text-xs font-medium text-primary hover:underline">
+                    Voir tous <ChevronRight className="h-3.5 w-3.5" />
                   </Link>
-                </li>
-              ))}
-            </ul>
-            {comptes.length > 12 && (
-              <Link
-                href="/comptes"
-                className="mt-2 flex items-center gap-1 text-xs text-muted-foreground hover:text-primary hover:underline"
-              >
-                + {comptes.length - 12} autres dans le plan de comptes
-                <ChevronRight className="h-3.5 w-3.5" />
-              </Link>
+                </div>
+                <ul className="space-y-1.5">
+                  {prioritaires.map((c) => (
+                    <li key={c.id}>
+                      <Link
+                        href={`/compte/${c.id}`}
+                        className="flex items-center justify-between gap-3 rounded-xl border bg-white/70 px-3.5 py-2.5 text-sm backdrop-blur-sm transition-all duration-150 hover:bg-white hover:shadow-sm hover:border-primary/20"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span
+                            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-xs font-bold text-white"
+                            style={{ background: "linear-gradient(135deg, hsl(231 72% 42%) 0%, hsl(231 72% 30%) 100%)" }}
+                          >
+                            {(c.compte || "?")[0].toUpperCase()}
+                          </span>
+                          <span className="truncate font-medium text-foreground">{c.compte || "—"}</span>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          {c.secteur && (
+                            <Badge variant="outline" className="hidden font-normal sm:flex text-xs">
+                              {c.secteur}
+                            </Badge>
+                          )}
+                          {c.stage && (
+                            <Badge className={cn("font-normal text-xs", valueBadgeClass(c.stage))}>
+                              {c.stage}
+                            </Badge>
+                          )}
+                          {c.scoreAdilStar != null && (
+                            <span className="text-xs font-bold text-muted-foreground">★{c.scoreAdilStar}</span>
+                          )}
+                        </div>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
             )}
-          </section>
+
+            {/* Colonne droite : Tableau de bord rapide */}
+            <aside className="space-y-3">
+              {/* Score moyen */}
+              <div className="rounded-xl border bg-white/70 p-4 backdrop-blur-sm">
+                <p className="text-xs font-medium text-muted-foreground mb-1">Score moyen portefeuille</p>
+                <p className="text-2xl font-bold text-foreground">★ {avgScore}<span className="text-sm font-normal text-muted-foreground">/100</span></p>
+                <div className="mt-2 h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all"
+                    style={{ width: `${avgScore}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Comptes chauds */}
+              <div className="rounded-xl border bg-white/70 p-4 backdrop-blur-sm">
+                <p className="text-xs font-medium text-muted-foreground mb-1">Comptes Hot ou Warm</p>
+                <p className="text-2xl font-bold text-foreground">{openOpps}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">comptes à activer en priorité</p>
+              </div>
+
+              {/* Liens rapides */}
+              <div className="rounded-xl border bg-white/70 p-4 backdrop-blur-sm space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Accès rapides</p>
+                {[
+                  { href: "/connaissance", label: "Base de connaissance" },
+                  { href: "/roadmap", label: "Roadmap 3 vagues" },
+                  { href: "/methodologie", label: "Méthode & Indicateurs" },
+                ].map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="flex items-center justify-between text-sm text-foreground hover:text-primary hover:underline"
+                  >
+                    {link.label}
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                  </Link>
+                ))}
+              </div>
+            </aside>
+          </div>
         </>
       )}
     </main>
