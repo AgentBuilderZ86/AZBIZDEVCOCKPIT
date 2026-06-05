@@ -5,7 +5,8 @@ import { getCompte360 } from "../notion";
 import { isIntelligenceEnabled, intelligenceConfig } from "./config";
 import { searchKnowledge } from "./knowledge";
 import { listAccountJournal } from "./journal";
-import type { CopilotCitation, CopilotResponse } from "./copilot-types";
+import { buildCopilotCitations } from "./copilot-citations";
+import type { CopilotResponse } from "./copilot-types";
 
 let client: Anthropic | null = null;
 function getClient(): Anthropic {
@@ -150,17 +151,16 @@ Réponds en structurant ta réponse : synthèse, références Sia citées, recom
     .map((b) => b.text)
     .join("\n");
 
-  const citations: CopilotCitation[] = hits.map((h) => ({
-    type: h.citation.type,
-    id: h.citation.id,
-    label: h.citation.label,
-    excerpt: h.citation.excerpt,
-    similarity: h.similarity,
-  }));
+  const citations = buildCopilotCitations(
+    hits,
+    signaux,
+    contacts,
+    journal
+  );
 
   return {
     answer: answer.trim() || "Je n'ai pas pu générer de réponse.",
     citations,
-    sourcesUsed: hits.length,
+    sourcesUsed: citations.length,
   };
 }

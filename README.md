@@ -191,6 +191,16 @@ API : `GET/POST /api/compte/[id]/journal`.
 - Worker jobs : `POST /api/cron/jobs` (batch), statut `GET /api/intelligence/jobs/[id]`.
 - Gros documents (>10 chunks) : ingestion **async** (`202` + polling UI).
 
+### Phase 8 — Veille commerciale
+
+Sur **`/compte/[id]`** : bouton **Lancer la veille** (Claude + web_search) → actualités dans le journal (`source: news`).
+
+API : `POST /api/compte/[id]/veille` (option `?async=1` pour la file jobs).
+
+### Phase 9 — Citations copilote enrichies
+
+Le copilote affiche des badges **Patrimoine**, **Signal**, **Contact**, **Journal** (liens Notion/web quand disponibles).
+
 ## Développement
 
 ```bash

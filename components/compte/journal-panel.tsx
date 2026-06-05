@@ -22,9 +22,15 @@ interface Props {
   compteId: string;
   enabled: boolean;
   disabledReason?: string;
+  refreshKey?: number;
 }
 
-export function JournalPanel({ compteId, enabled, disabledReason }: Props) {
+export function JournalPanel({
+  compteId,
+  enabled,
+  disabledReason,
+  refreshKey = 0,
+}: Props) {
   const [events, setEvents] = React.useState<JournalEvent[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [note, setNote] = React.useState("");
@@ -55,7 +61,7 @@ export function JournalPanel({ compteId, enabled, disabledReason }: Props) {
 
   React.useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, refreshKey]);
 
   async function submitNote(e: React.FormEvent) {
     e.preventDefault();

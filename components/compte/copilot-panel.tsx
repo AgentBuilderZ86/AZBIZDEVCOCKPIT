@@ -7,13 +7,39 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { CopilotCitation, CopilotMessage } from "@/lib/intelligence/copilot-types";
+import type {
+  CopilotCitation,
+  CopilotMessage,
+} from "@/lib/intelligence/copilot-types";
+import { citationTypeLabel } from "@/lib/intelligence/copilot-types";
 
 interface Props {
   compteId: string;
   compteName: string;
   enabled: boolean;
   disabledReason?: string;
+}
+
+function CitationBadge({ citation: c }: { citation: CopilotCitation }) {
+  const label = `${citationTypeLabel(c.type)} · ${c.label}`;
+  const extra =
+    c.similarity != null ? ` · ${Math.round(c.similarity * 100)} %` : "";
+  if (c.url) {
+    return (
+      <a href={c.url} target="_blank" rel="noreferrer">
+        <Badge variant="outline" className="text-xs font-normal hover:bg-muted">
+          {label}
+          {extra}
+        </Badge>
+      </a>
+    );
+  }
+  return (
+    <Badge variant="outline" className="text-xs font-normal" title={c.excerpt}>
+      {label}
+      {extra}
+    </Badge>
+  );
 }
 
 export function CopilotPanel({
@@ -90,11 +116,7 @@ export function CopilotPanel({
                 {msg.citations && msg.citations.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1">
                     {msg.citations.map((c, j) => (
-                      <Badge key={j} variant="outline" className="text-xs font-normal">
-                        {c.label}
-                        {c.similarity != null &&
-                          ` · ${Math.round(c.similarity * 100)} %`}
-                      </Badge>
+                      <CitationBadge key={j} citation={c} />
                     ))}
                   </div>
                 )}

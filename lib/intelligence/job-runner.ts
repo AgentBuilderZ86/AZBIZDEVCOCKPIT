@@ -1,14 +1,19 @@
 import "server-only";
 import { ingestKnowledgeDocument, type IngestInput } from "./knowledge";
-import { completeJob, failJob, type IntelligenceJob } from "./jobs";
+import { completeJob, type IntelligenceJob } from "./jobs";
+import { runAccountVeille } from "./veille";
 
 const JOB_KNOWLEDGE_INGEST = "knowledge.ingest";
+const JOB_VEILLE_SCAN = "veille.scan";
 
 /** Traite un job réservé (appelé par /api/cron/jobs). */
 export async function runIntelligenceJob(job: IntelligenceJob): Promise<void> {
   switch (job.jobType) {
     case JOB_KNOWLEDGE_INGEST:
       await runKnowledgeIngest(job);
+      return;
+    case JOB_VEILLE_SCAN:
+      await runVeilleScan(job);
       return;
     default:
       throw new Error(`Type de job inconnu : ${job.jobType}`);
@@ -37,4 +42,20 @@ async function runKnowledgeIngest(job: IntelligenceJob): Promise<void> {
   await completeJob(job.id, { ...result, title: input.title });
 }
 
-export { JOB_KNOWLEDGE_INGEST };
+async function runVeilleScan(job: IntelligenceJob): Promise<void> {
+  const accountId = String(job.payload.accountId ?? "");
+  if (!accountId) throw new Error("Payload veille.scan : accountId requis.");
+
+  const result = await runAccountVeille(accountId);
+  if (result.error && result.items.length === 0) {
+    throw new Error(result.error);
+  }
+  await completeJob(job.id, {
+    accountId,
+    itemsFound: result.items.length,
+    journalIds: result.journalIds,
+    warning: result.error,
+  });
+}
+
+export { JOB_KNOWLEDGE_INGEST, JOB_VEILLE_SCAN };
