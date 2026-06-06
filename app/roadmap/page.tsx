@@ -38,6 +38,9 @@ const WAVES = [
       { icon: Database, text: "Base de connaissance RAG", detail: "Ingestion PDF/TXT/MD, indexation sémantique" },
       { icon: RefreshCw, text: "Cron scoring quotidien", detail: "Recalcul automatique 6h, mise à jour Notion" },
       { icon: GitBranch, text: "Jobs asynchrones", detail: "File de traitement, statut, retry automatique" },
+      { icon: Sparkles, text: "Offre Mapping par compte", detail: "Analyse RAG → tableau sujet/offre Sia/couverture + plan d'action IA" },
+      { icon: Globe, text: "Synthèse Dashboard 360°", detail: "Vue cross-comptes : hot topics, couverture offres, gaps" },
+      { icon: FileText, text: "Write-back Notion validé", detail: "Plan stratégique + signaux écrits depuis l'analyse, sous validation" },
     ],
   },
   {
@@ -63,7 +66,7 @@ const WAVES = [
 
 const PROGRESS = [
   { label: "Vague 1 · Fondations", pct: 100, color: "bg-emerald-500" },
-  { label: "Vague 2 · Intelligence", pct: 70, color: "bg-orange-500" },
+  { label: "Vague 2 · Intelligence", pct: 88, color: "bg-orange-500" },
   { label: "Vague 3 · Vision", pct: 10, color: "bg-violet-500" },
 ];
 
