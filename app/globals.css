@@ -166,6 +166,38 @@
       0 4px 12px hsl(231 72% 38% / 0.25),
       inset 0 1px 0 hsl(231 50% 60% / 0.3);
   }
+
+  /* Bento card — carte premium avec hover scale */
+  .bento-card {
+    @apply relative overflow-hidden rounded-xl border bg-white/80 backdrop-blur-sm transition-all duration-200;
+    box-shadow:
+      0 1px 3px hsl(220 20% 0% / 0.06),
+      0 4px 16px hsl(220 20% 0% / 0.04),
+      inset 0 1px 0 hsl(0 0% 100% / 0.75);
+  }
+
+  .bento-card:hover {
+    box-shadow:
+      0 2px 8px hsl(220 20% 0% / 0.09),
+      0 10px 28px hsl(220 20% 0% / 0.06),
+      inset 0 1px 0 hsl(0 0% 100% / 0.9);
+    transform: scale(1.01);
+  }
+
+  /* Titre de section statement */
+  .section-heading {
+    @apply text-2xl font-bold tracking-tight;
+  }
+
+  /* Grande valeur KPI */
+  .kpi-value {
+    @apply text-3xl font-bold tracking-tighter;
+  }
+
+  /* Label KPI atténué uppercase */
+  .label-muted {
+    @apply text-xs font-medium uppercase tracking-widest text-muted-foreground/70;
+  }
 }
 
 /* Scrollbar minimaliste */

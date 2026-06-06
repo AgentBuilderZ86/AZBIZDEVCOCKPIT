@@ -87,7 +87,7 @@ export function ComptesTable({ comptes, onUpdate, onArchive }: Props) {
             </TableRow>
           )}
           {sorted.map((c) => (
-            <TableRow key={c.id}>
+            <TableRow key={c.id} className="group transition-colors duration-150 hover:bg-primary/[0.025]">
               <TableCell className="min-w-[200px] font-medium">
                 <TextCell
                   value={c.compte}
@@ -141,7 +141,7 @@ export function ComptesTable({ comptes, onUpdate, onArchive }: Props) {
                 />
               </TableCell>
               <TableCell>
-                <div className="flex items-center justify-end gap-1">
+                <div className="flex items-center justify-end gap-1 opacity-40 group-hover:opacity-100 transition-opacity duration-150">
                   <Button
                     asChild
                     variant="ghost"

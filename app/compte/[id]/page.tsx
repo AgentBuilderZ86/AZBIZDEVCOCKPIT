@@ -77,9 +77,9 @@ export default async function ComptePage({ params }: { params: { id: string } })
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold">{compte.compte || "—"}</h1>
+            <h1 className="text-3xl font-bold tracking-tight">{compte.compte || "—"}</h1>
             {compte.accountId != null && (
-              <span className="text-sm text-muted-foreground">#{compte.accountId}</span>
+              <span className="text-sm text-muted-foreground/70">#{compte.accountId}</span>
             )}
             {compte.url && (
               <Button asChild variant="ghost" size="icon" className="h-7 w-7">
@@ -90,15 +90,23 @@ export default async function ComptePage({ params }: { params: { id: string } })
             )}
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {compte.secteur && <Badge variant="outline" className="font-normal">{compte.secteur}</Badge>}
+            {compte.secteur && (
+              <Badge variant="outline" className="rounded-full px-3 font-normal">
+                {compte.secteur}
+              </Badge>
+            )}
             {compte.priorite && (
-              <Badge className={cn("font-normal", valueBadgeClass(compte.priorite))}>{compte.priorite}</Badge>
+              <Badge className={cn("rounded-full px-3 font-normal", valueBadgeClass(compte.priorite))}>
+                {compte.priorite}
+              </Badge>
             )}
             {compte.stage && (
-              <Badge className={cn("font-normal", valueBadgeClass(compte.stage))}>{compte.stage}</Badge>
+              <Badge className={cn("rounded-full px-3 font-normal", valueBadgeClass(compte.stage))}>
+                {compte.stage}
+              </Badge>
             )}
             {compte.statutRelation && (
-              <Badge className={cn("font-normal", valueBadgeClass(compte.statutRelation))}>
+              <Badge className={cn("rounded-full px-3 font-normal", valueBadgeClass(compte.statutRelation))}>
                 {compte.statutRelation}
               </Badge>
             )}
@@ -114,9 +122,31 @@ export default async function ComptePage({ params }: { params: { id: string } })
         </div>
       </header>
 
-      {/* Firmo / KPIs */}
-      <section className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
-        <Kpi label="Score AdilStar" value={compte.scoreAdilStar != null ? `★ ${compte.scoreAdilStar}` : "—"} />
+      {/* Bento KPI row */}
+      <section className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
+        {/* Score AdilStar — hero */}
+        <div
+          className="col-span-1 rounded-xl border backdrop-blur-sm transition-all duration-200 hover:scale-[1.02] p-4"
+          style={{
+            background:
+              "linear-gradient(135deg, hsl(231 72% 38% / 0.06) 0%, hsl(231 60% 55% / 0.10) 100%)",
+            boxShadow:
+              "0 1px 3px hsl(220 20% 0% / 0.05), inset 0 1px 0 hsl(0 0% 100% / 0.7)",
+          }}
+        >
+          <p className="label-muted">Score AdilStar</p>
+          <p className="mt-1 text-3xl font-bold tracking-tighter text-primary">
+            {compte.scoreAdilStar != null ? `★ ${compte.scoreAdilStar}` : "—"}
+          </p>
+          {compte.scoreAdilStar != null && (
+            <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-primary/15">
+              <div
+                className="h-full rounded-full bg-primary/70 transition-all"
+                style={{ width: `${compte.scoreAdilStar}%` }}
+              />
+            </div>
+          )}
+        </div>
         <Kpi label="ARR pondéré (k€)" value={compte.arrPondere != null ? String(compte.arrPondere) : "—"} />
         <Kpi label="Pipeline opps (k€)" value={pipeline ? pipeline.toFixed(1) : "—"} />
         <Kpi label="Effectif" value={compte.effectif != null ? String(compte.effectif) : "—"} />
@@ -188,9 +218,15 @@ export default async function ComptePage({ params }: { params: { id: string } })
 
 function Kpi({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border bg-white/75 p-3 backdrop-blur-sm shadow-sm" style={{ boxShadow: "0 1px 3px hsl(220 20% 0% / 0.05), inset 0 1px 0 hsl(0 0% 100% / 0.7)" }}>
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-0.5 text-lg font-bold tracking-tight">{value}</p>
+    <div
+      className="rounded-xl border bg-white/75 p-4 backdrop-blur-sm transition-all duration-200 hover:scale-[1.02]"
+      style={{
+        boxShadow:
+          "0 1px 3px hsl(220 20% 0% / 0.05), inset 0 1px 0 hsl(0 0% 100% / 0.7)",
+      }}
+    >
+      <p className="label-muted">{label}</p>
+      <p className="mt-1 text-lg font-bold tracking-tight">{value}</p>
     </div>
   );
 }
