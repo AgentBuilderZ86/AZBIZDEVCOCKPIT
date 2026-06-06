@@ -4,6 +4,7 @@ import { completeJob, enqueueJob, type IntelligenceJob } from "./jobs";
 import { runAccountVeille } from "./veille";
 import { buildEnrichmentData, buildEnrichmentIntel, type EnrichmentData } from "@/lib/enrichment";
 import { triggerJobWorker } from "./trigger-worker";
+import { analyzeCompteOffres } from "./offre-analysis";
 
 const JOB_KNOWLEDGE_INGEST = "knowledge.ingest";
 const JOB_VEILLE_SCAN = "veille.scan";
@@ -11,6 +12,7 @@ const JOB_VEILLE_SCAN = "veille.scan";
 const JOB_ENRICH_PROPOSAL = "enrich.proposal";
 const JOB_ENRICH_DATA = "enrich.data";
 const JOB_ENRICH_INTEL = "enrich.intel";
+const JOB_OFFRE_ANALYSIS = "offre.analysis";
 
 /** Traite un job réservé (appelé par /api/cron/jobs). */
 export async function runIntelligenceJob(job: IntelligenceJob): Promise<void> {
@@ -30,6 +32,9 @@ export async function runIntelligenceJob(job: IntelligenceJob): Promise<void> {
     case JOB_ENRICH_PROPOSAL:
       // Compatibilité ascendante — exécute les deux phases en séquence.
       await runEnrichDataAndIntel(job);
+      return;
+    case JOB_OFFRE_ANALYSIS:
+      await runOffreAnalysis(job);
       return;
     default:
       throw new Error(`Type de job inconnu : ${job.jobType}`);
@@ -118,4 +123,12 @@ async function runEnrichDataAndIntel(job: IntelligenceJob): Promise<void> {
   await completeJob(job.id, { proposal: proposal as unknown as Record<string, unknown> });
 }
 
-export { JOB_KNOWLEDGE_INGEST, JOB_VEILLE_SCAN, JOB_ENRICH_PROPOSAL, JOB_ENRICH_DATA, JOB_ENRICH_INTEL };
+async function runOffreAnalysis(job: IntelligenceJob): Promise<void> {
+  const compteId = String(job.payload.compteId ?? "").trim();
+  if (!compteId) throw new Error("Payload offre.analysis : compteId requis.");
+
+  await analyzeCompteOffres(compteId, { forceRefresh: true });
+  await completeJob(job.id, { compteId });
+}
+
+export { JOB_KNOWLEDGE_INGEST, JOB_VEILLE_SCAN, JOB_ENRICH_PROPOSAL, JOB_ENRICH_DATA, JOB_ENRICH_INTEL, JOB_OFFRE_ANALYSIS };

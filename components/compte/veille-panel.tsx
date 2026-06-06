@@ -16,6 +16,33 @@ interface Props {
 export function VeillePanel({ compteId, enabled, onComplete }: Props) {
   const [loading, setLoading] = React.useState(false);
 
+  async function pollVeilleJob(jobId: string): Promise<void> {
+    const MAX = 20;
+    for (let i = 0; i < MAX; i++) {
+      await new Promise((r) => setTimeout(r, 2000));
+      try {
+        const res = await fetch(`/api/intelligence/jobs/${jobId}`);
+        const data = await parseApiJson(res);
+        const job = data.job as { status: string; result?: Record<string, unknown>; error?: string } | undefined;
+        if (!job) continue;
+        if (job.status === "done") {
+          const n = typeof job.result?.itemsFound === "number" ? job.result.itemsFound : 0;
+          toast.success(n > 0 ? `${n} actualité(s) ajoutée(s) au journal.` : "Veille terminée — aucune actualité trouvée.");
+          onComplete?.();
+          return;
+        }
+        if (job.status === "failed") {
+          toast.error(typeof job.error === "string" ? job.error : "Veille échouée.");
+          return;
+        }
+      } catch {
+        // erreur réseau transitoire — continuer
+      }
+    }
+    toast.info("Veille en cours — actualisez le journal dans quelques instants.");
+    onComplete?.();
+  }
+
   async function runVeille(asyncMode: boolean) {
     setLoading(true);
     try {
@@ -24,17 +51,15 @@ export function VeillePanel({ compteId, enabled, onComplete }: Props) {
         method: "POST",
       });
       const data = await parseApiJson(res);
-      if (!res.ok) throw new Error(data.error ?? "Veille impossible.");
+      if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Veille impossible.");
 
-      if (data.queued) {
-        toast.info(typeof data.message === "string" ? data.message : "Veille lancée en arrière-plan.");
-        onComplete?.();
+      if (data.queued && typeof data.jobId === "string") {
+        await pollVeilleJob(data.jobId);
         return;
       }
 
-      toast.success(
-        `${data.journalEntries ?? 0} actualité(s) ajoutée(s) au journal.`
-      );
+      // Mode sync (fallback)
+      toast.success(`${data.journalEntries ?? 0} actualité(s) ajoutée(s) au journal.`);
       onComplete?.();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur veille.");
@@ -64,7 +89,7 @@ export function VeillePanel({ compteId, enabled, onComplete }: Props) {
             size="sm"
             variant="outline"
             disabled={loading}
-            onClick={() => runVeille(false)}
+            onClick={() => runVeille(true)}
           >
             {loading ? "Recherche…" : "Lancer la veille"}
           </Button>

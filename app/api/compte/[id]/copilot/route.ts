@@ -4,6 +4,7 @@ import {
   isIntelligenceEnabled,
   intelligenceConfig,
 } from "@/lib/intelligence/config";
+import { pingDb } from "@/lib/intelligence/db";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -35,6 +36,7 @@ export async function POST(
       return NextResponse.json({ error: "question requis." }, { status: 400 });
     }
 
+    await pingDb().catch(() => {});
     const result = await askAccountCopilot(params.id, body.question);
     return NextResponse.json(result);
   } catch (err) {

@@ -61,11 +61,6 @@ export async function askAccountCopilot(
     if (broader.length > hits.length) hits = broader;
   }
 
-  if (hits.length < 3) {
-    const global = await searchKnowledge(trimmed, { k: 12 });
-    if (global.length > hits.length) hits = global;
-  }
-
   let journal: Awaited<ReturnType<typeof listAccountJournal>> = [];
   try {
     journal = await listAccountJournal(compte.url, 12);

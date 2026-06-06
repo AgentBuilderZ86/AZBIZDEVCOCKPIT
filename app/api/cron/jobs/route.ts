@@ -42,7 +42,12 @@ export async function POST(req: NextRequest) {
     if (!job) break;
 
     try {
-      await runIntelligenceJob(job);
+      await Promise.race([
+        runIntelligenceJob(job),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("timeout_worker")), 22_000)
+        ),
+      ]);
       processed.push({ id: job.id, jobType: job.jobType, status: "done" });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Erreur job.";
