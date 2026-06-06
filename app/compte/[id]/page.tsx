@@ -12,9 +12,34 @@ import { EnrichDialog } from "@/components/compte/enrich-dialog";
 import { CompteIntelligenceAside } from "@/components/compte/compte-intelligence-aside";
 import { OffreMappingPanel } from "@/components/compte/offre-mapping-panel";
 import { isIntelligenceEnabled, intelligenceConfig } from "@/lib/intelligence/config";
+import { getDb } from "@/lib/intelligence/db";
 import { valueBadgeClass } from "@/lib/compte-ui";
 import { cn } from "@/lib/utils";
 import type { Compte360 } from "@/lib/types";
+
+interface AoRow {
+  id: string;
+  titre: string;
+  client: string;
+  statut: string;
+  score_fit: number | null;
+  budget_k_eur: number | null;
+  deadline: string | null;
+  synthese: string;
+  suggestion: string;
+}
+
+interface ActionRow {
+  id: string;
+  action_text: string;
+  target_contacts: string;
+  linked_offer: string | null;
+  horizon: string;
+  status: string;
+  done_at: string | null;
+  done_type: string | null;
+  done_notes: string | null;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +74,31 @@ export default async function ComptePage({ params }: { params: { id: string } })
   }
 
   const { compte, contacts, opportunites, signaux } = data;
+
+  const intelligenceOn = isIntelligenceEnabled();
+  let aos: AoRow[] = [];
+  let actions: ActionRow[] = [];
+
+  if (intelligenceOn) {
+    const db = getDb();
+    [aos, actions] = await Promise.all([
+      db<AoRow[]>`
+        SELECT id, titre, client, statut, score_fit, budget_k_eur, deadline, synthese, suggestion
+        FROM ao_submissions
+        WHERE compte_notion_id = ${params.id}
+        ORDER BY deadline ASC NULLS LAST
+        LIMIT 20
+      `.catch(() => []),
+      db<ActionRow[]>`
+        SELECT id, action_text, target_contacts, linked_offer, horizon, status, done_at, done_type, done_notes
+        FROM revue_actions
+        WHERE compte_id = ${params.id}
+        ORDER BY status ASC, horizon ASC, generated_at ASC
+        LIMIT 30
+      `.catch(() => []),
+    ]);
+  }
+
   const nba = await resolveNextBestAction(
     compte,
     contacts,
@@ -58,8 +108,6 @@ export default async function ComptePage({ params }: { params: { id: string } })
   const pipeline = opportunites
     .filter((o) => o.stage && o.stage !== "Lost")
     .reduce((s, o) => s + (o.arrPondere ?? 0), 0);
-
-  const intelligenceOn = isIntelligenceEnabled();
   const copilotEnabled =
     intelligenceOn && Boolean(intelligenceConfig().embeddingsApiKey);
   const intelligenceDisabledReason = !intelligenceOn
@@ -174,7 +222,7 @@ export default async function ComptePage({ params }: { params: { id: string } })
       <section className="mt-4 grid gap-4 lg:grid-cols-[2fr_1fr]">
         <div className="space-y-4">
           <Suspense fallback={<div className="h-48 animate-pulse rounded-md bg-muted" />}>
-            <Compte360Tabs contacts={contacts} opportunites={opportunites} signaux={signaux} />
+            <Compte360Tabs contacts={contacts} opportunites={opportunites} signaux={signaux} aos={aos} actions={actions} />
           </Suspense>
           <div>
             <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">

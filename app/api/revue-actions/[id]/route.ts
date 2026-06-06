@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isIntelligenceEnabled } from "@/lib/intelligence/config";
 import { getDb } from "@/lib/intelligence/db";
 import { appendAccountJournal } from "@/lib/intelligence/journal";
+import { updateContactDerniereInteraction } from "@/lib/notion";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +63,11 @@ export async function PATCH(
             reviewedVia: "revue_actions",
           },
         }).catch(() => {});
+
+        // Met à jour derniereInteraction du contact Notion (best-effort)
+        if (doneContact && action.compte_id) {
+          void updateContactDerniereInteraction(action.compte_id, doneContact).catch(() => {});
+        }
       }
     } else {
       await db`

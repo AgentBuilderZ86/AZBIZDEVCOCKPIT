@@ -17,6 +17,8 @@ import { valueBadgeClass } from "@/lib/compte-ui";
 import { cn } from "@/lib/utils";
 import { OffreSynthesisWidget } from "@/components/dashboard/offre-synthesis-widget";
 import { GamificationSection } from "@/components/dashboard/gamification-section";
+import { AoHealthWidget } from "@/components/dashboard/ao-health-widget";
+import { ActionsUrgentesWidget } from "@/components/dashboard/actions-urgentes-widget";
 import { isIntelligenceEnabled } from "@/lib/intelligence/config";
 import type { Compte } from "@/lib/types";
 
@@ -222,9 +224,11 @@ export default async function HomePage() {
               </div>
             </div>
 
-            {/* ── COL 3 : Gamification ── */}
+            {/* ── COL 3 : Gamification + AO + Actions ── */}
             <div className="flex flex-col gap-3">
               <GamificationSection intelligenceOn={intelligenceOn} />
+              {intelligenceOn && <AoHealthWidget />}
+              {intelligenceOn && <ActionsUrgentesWidget />}
             </div>
           </div>
 

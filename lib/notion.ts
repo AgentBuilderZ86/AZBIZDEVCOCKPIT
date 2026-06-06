@@ -565,6 +565,31 @@ export async function createSignal(
   return notionPageToSignal(page);
 }
 
+/**
+ * Trouve le contact dont le nom contient `contactName` (insensible à la casse)
+ * et met à jour son champ "Dernière interaction" à aujourd'hui.
+ * Best-effort : ne jette pas d'erreur si aucun contact ne correspond.
+ */
+export async function updateContactDerniereInteraction(
+  compteId: string,
+  contactName: string
+): Promise<void> {
+  if (!compteId || !contactName) return;
+  const notion = getNotionClient();
+  const contacts = await listContactsByCompte(compteId).catch(() => []);
+  const lower = contactName.toLowerCase();
+  const match = contacts.find((c) => c.nomComplet.toLowerCase().includes(lower));
+  if (!match) return;
+  const today = new Date().toISOString().slice(0, 10);
+  await withRetry(() =>
+    notion.pages.update({
+      page_id: match.id,
+      properties: { "Dernière interaction": writeDate(today) } as any,
+    })
+  );
+  logWriteback("update", match.id, { type: "contact_interaction", derniereInteraction: today });
+}
+
 /** Met à jour les champs firmo/score/plan d'un compte (enrichissement). */
 export async function updateCompteFields(
   compteId: string,
