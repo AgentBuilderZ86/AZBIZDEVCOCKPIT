@@ -197,6 +197,28 @@ export function OffreMappingPanel({ compteId, intelligenceOn }: Props) {
     if (intelligenceOn) void load();
   }, [intelligenceOn, load]);
 
+  // Récupère le résultat depuis le cache si la requête POST a échoué côté réseau
+  // (connexion coupée à ~26s) alors que le serveur a fini de générer et sauvegardé.
+  const pollCache = useCallback(async (): Promise<boolean> => {
+    for (let i = 0; i < 8; i++) {
+      await new Promise((r) => setTimeout(r, 3000));
+      try {
+        const res = await fetch(`/api/compte/${compteId}/offre-analysis`);
+        if (res.status === 404) continue;
+        const data = await parseApiJson(res);
+        if (data.analysis) {
+          setAnalysis(data.analysis as OffreAnalysis);
+          setStatus("done");
+          toast.success("Analyse offre générée.");
+          return true;
+        }
+      } catch {
+        // erreur transitoire — continuer le polling
+      }
+    }
+    return false;
+  }, [compteId]);
+
   const generate = useCallback(async () => {
     setStatus("generating");
     setErrorMsg(null);
@@ -206,6 +228,8 @@ export function OffreMappingPanel({ compteId, intelligenceOn }: Props) {
       });
       const data = await parseApiJson(res);
       if (data.error) {
+        // Le serveur a peut-être quand même terminé et mis en cache → on tente de récupérer.
+        if (await pollCache()) return;
         setStatus("error");
         setErrorMsg(typeof data.error === "string" ? data.error : "Erreur génération.");
         toast.error(typeof data.error === "string" ? data.error : "Erreur génération.");
@@ -215,11 +239,13 @@ export function OffreMappingPanel({ compteId, intelligenceOn }: Props) {
       setStatus("done");
       toast.success("Analyse offre générée.");
     } catch (err) {
+      // « Load failed » / timeout réseau : la génération continue souvent côté serveur.
+      if (await pollCache()) return;
       setStatus("error");
       setErrorMsg(err instanceof Error ? err.message : "Erreur réseau.");
       toast.error("Erreur lors de la génération.");
     }
-  }, [compteId]);
+  }, [compteId, pollCache]);
 
   const handleApply = useCallback(
     async (opts: { applyPlan: boolean; applySignaux: boolean }) => {

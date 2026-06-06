@@ -47,16 +47,12 @@ export async function POST(
     return NextResponse.json({ error: "ANTHROPIC_API_KEY absente." }, { status: 503 });
   }
 
-  // Warm-up connexion DB pour éviter le cold start dans analyzeCompteOffres
-  await pingDb().catch(() => {});
+  // Warm-up connexion DB en parallèle (non-bloquant) : la connexion Neon chauffe
+  // pendant les appels Notion, prête quand searchKnowledge/saveAnalysis en ont besoin.
+  void pingDb().catch(() => {});
 
   try {
-    const analysis = await Promise.race([
-      analyzeCompteOffres(params.id, { forceRefresh: true }),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Délai dépassé — réessayez dans quelques instants.")), 22_000)
-      ),
-    ]);
+    const analysis = await analyzeCompteOffres(params.id, { forceRefresh: true });
     return NextResponse.json({ analysis });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Erreur génération analyse.";
