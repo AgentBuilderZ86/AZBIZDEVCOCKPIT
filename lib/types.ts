@@ -61,6 +61,7 @@ export interface CompteCreate {
   priorite?: Priorite | null;
   stage?: Stage | null;
   statutRelation?: StatutRelation | null;
+  categorie?: string | null;
 }
 
 /* -------------------------------------------------------------------------- */
