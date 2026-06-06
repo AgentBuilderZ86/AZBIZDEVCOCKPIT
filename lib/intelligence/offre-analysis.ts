@@ -327,7 +327,8 @@ Génère une analyse structurée en JSON respectant EXACTEMENT ce schéma (4 à 
     syntheseNarrative,
   };
 
-  await saveAnalysis(analysis, hits.length, compte.url);
+  // Non-bloquant : si la migration 004 n'a pas été jouée, l'analyse est quand même retournée.
+  void saveAnalysis(analysis, hits.length, compte.url).catch(() => {});
 
   void appendAccountJournal({
     accountUrl: compte.url,

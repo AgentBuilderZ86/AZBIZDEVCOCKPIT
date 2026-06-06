@@ -187,9 +187,9 @@ export function OffreMappingPanel({ compteId, intelligenceOn }: Props) {
       }
       setAnalysis(data.analysis as OffreAnalysis);
       setStatus("done");
-    } catch (err) {
-      setStatus("error");
-      setErrorMsg(err instanceof Error ? err.message : "Erreur réseau.");
+    } catch {
+      // Timeout ou HTML Netlify → traiter comme "pas d'analyse" plutôt qu'erreur bloquante
+      setStatus("idle");
     }
   }, [compteId]);
 
