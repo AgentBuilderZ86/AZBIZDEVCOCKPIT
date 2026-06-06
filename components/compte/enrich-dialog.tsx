@@ -61,6 +61,38 @@ export function EnrichDialog({ compteId }: Props) {
   const [contactUpdatesSel, setContactUpdatesSel] = React.useState<boolean[]>([]);
   const [signauxSel, setSignauxSel] = React.useState<boolean[]>([]);
 
+  async function pollIntelJob(jobId: string): Promise<EnrichmentProposal> {
+    const MAX = 20; // 20 × 3s = 60s max
+    const steps = [
+      "Analyse Claude Sonnet en cours…",
+      "Calcul du score AdilStar…",
+      "Rédaction du plan stratégique…",
+      "Assemblage de la proposition…",
+    ];
+    for (let i = 0; i < MAX; i++) {
+      await new Promise((r) => setTimeout(r, 3000));
+      setLoadingProgress(40 + Math.round(((i + 1) / MAX) * 55)); // 40 → 95%
+      setLoadingStatus(steps[Math.min(i, steps.length - 1)]);
+      try {
+        const res = await fetch(`/api/intelligence/jobs/${jobId}`);
+        const data = await parseApiJson(res);
+        if (!res.ok) continue;
+        const job = data.job as { status: string; result?: Record<string, unknown>; error?: string } | undefined;
+        if (!job) continue;
+        if (job.status === "failed") throw new Error(String(job.error ?? "Analyse Claude échouée."));
+        if (job.status === "done") {
+          const proposal = (job.result as { proposal?: EnrichmentProposal } | null)?.proposal;
+          if (!proposal) throw new Error("Proposition absente du résultat.");
+          return proposal;
+        }
+      } catch (err) {
+        if (err instanceof Error && (err.message.includes("échouée") || err.message.includes("absente"))) throw err;
+        // erreur réseau transitoire — continuer
+      }
+    }
+    throw new Error("Délai dépassé (analyse Claude). Réessayez dans quelques instants.");
+  }
+
   async function runEnrich() {
     setOpen(true);
     setLoading(true);
@@ -68,35 +100,30 @@ export function EnrichDialog({ compteId }: Props) {
     setLoadingProgress(0);
     setLoadingStatus("Collecte des sources (Apollo · Hunter · Explorium)…");
     try {
-      // Lance un timer d'avancement visuel pendant l'attente (~20s)
-      const steps = [
-        { at: 2000, pct: 20, label: "Collecte Apollo · Hunter · Explorium…" },
-        { at: 5000, pct: 45, label: "Analyse des données firmographiques…" },
-        { at: 8000, pct: 65, label: "Analyse Claude Sonnet en cours…" },
-        { at: 12000, pct: 85, label: "Calcul du score & plan stratégique…" },
-      ];
-      const timers = steps.map(({ at, pct, label }) =>
-        setTimeout(() => {
-          setLoadingProgress(pct);
-          setLoadingStatus(label);
-        }, at)
-      );
+      // Timer visuel pendant Phase 1 (~6s)
+      const t1 = setTimeout(() => { setLoadingProgress(25); setLoadingStatus("Analyse des données firmographiques…"); }, 2500);
+      const t2 = setTimeout(() => { setLoadingProgress(38); setLoadingStatus("Sources collectées — lancement analyse Claude…"); }, 5500);
 
       const res = await fetch(`/api/comptes/${compteId}/enrich`, { method: "POST" });
-      timers.forEach(clearTimeout);
+      clearTimeout(t1); clearTimeout(t2);
 
       const data = await parseApiJson(res);
       if (!res.ok) throw new Error(String(data.error ?? "Échec de l'enrichissement."));
 
-      const p = data.proposal as EnrichmentProposal;
-      if (!p) throw new Error("Proposition absente de la réponse.");
+      if (res.status === 202 && data.queued && data.jobId) {
+        setLoadingProgress(40);
+        setLoadingStatus("Analyse Claude Sonnet en cours…");
+        const p = await pollIntelJob(String(data.jobId));
+        setLoadingProgress(100);
+        setProposal(p);
+        setFields(new Set(Object.keys(p.proposed) as FieldKey[]));
+        setContactsSel(p.newContacts.map(() => true));
+        setContactUpdatesSel((p.contactUpdates ?? []).map(() => true));
+        setSignauxSel(p.newSignaux.map(() => true));
+        return;
+      }
 
-      setLoadingProgress(100);
-      setProposal(p);
-      setFields(new Set(Object.keys(p.proposed) as FieldKey[]));
-      setContactsSel(p.newContacts.map(() => true));
-      setContactUpdatesSel((p.contactUpdates ?? []).map(() => true));
-      setSignauxSel(p.newSignaux.map(() => true));
+      throw new Error(String(data.error ?? "Réponse inattendue du serveur."));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur enrichissement.");
       setOpen(false);
@@ -193,7 +220,7 @@ export function EnrichDialog({ compteId }: Props) {
                   {loadingStatus || "Enrichissement en cours…"}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Apollo · Hunter · Claude Sonnet — 12–20 secondes
+                  Apollo · Hunter · Claude Sonnet — 20–35 secondes
                 </p>
               </div>
               <div className="space-y-1">

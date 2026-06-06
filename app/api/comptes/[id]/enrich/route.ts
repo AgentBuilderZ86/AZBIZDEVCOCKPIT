@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { buildEnrichmentData, buildEnrichmentIntel, applyEnrichment } from "@/lib/enrichment";
+import { buildEnrichmentData, applyEnrichment } from "@/lib/enrichment";
+import { enqueueJob } from "@/lib/intelligence/jobs";
 import { isIntelligenceEnabled } from "@/lib/intelligence/config";
 import { integrations } from "@/lib/config";
+import { JOB_ENRICH_INTEL } from "@/lib/intelligence/job-runner";
 import type { EnrichmentApply } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
-// Phase 1 (~8-12s) + Phase 2 Sonnet (~8-15s) = ~16-27s total.
+// Phase 1 seule tourne ici (~6s). Phase 2 est déléguée à la background function.
 export const maxDuration = 30;
 
-/** POST → collecte sources + analyse Claude, retourne la proposition directement. */
+/** POST → Phase 1 sync + trigger Phase 2 async, retourne jobId pour polling. */
 export async function POST(
   _req: NextRequest,
   { params }: { params: { id: string } }
@@ -24,13 +26,48 @@ export async function POST(
       return NextResponse.json({ error: "ANTHROPIC_API_KEY absente." }, { status: 503 });
     }
 
-    // Phase 1 : Apollo + Hunter + Explorium (~8-12s)
+    const day = new Date().toISOString().slice(0, 10);
+    const idempotencyKey = `enrich.intel:${params.id}:${day}`;
+
+    // Phase 1 : collecte sources externes (~5-8s) — synchrone dans cette route.
     const data = await buildEnrichmentData(params.id);
 
-    // Phase 2 : Claude Sonnet → proposition finale (~8-15s)
-    const proposal = await buildEnrichmentIntel(data);
+    // Queue Phase 2 (Claude Sonnet) — traitée par la background function.
+    const intelJobId = await enqueueJob(
+      JOB_ENRICH_INTEL,
+      { data: data as unknown as Record<string, unknown> },
+      idempotencyKey
+    );
 
-    return NextResponse.json({ proposal });
+    if (!intelJobId) {
+      return NextResponse.json(
+        { error: "Enrichissement déjà en cours aujourd'hui. Réessayez dans quelques instants." },
+        { status: 409 }
+      );
+    }
+
+    // Déclenche la Netlify Background Function pour Phase 2.
+    // La bg function retourne 202 immédiatement — pas de blocage ici.
+    const base =
+      process.env.URL?.trim() ||
+      process.env.DEPLOY_PRIME_URL?.trim() ||
+      process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+      "";
+    if (base) {
+      void fetch(`${base}/api/enrich-intel-bg`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${process.env.CRON_SECRET ?? ""}` },
+      }).catch(() => {});
+    }
+
+    return NextResponse.json(
+      {
+        queued: true,
+        jobId: intelJobId,
+        message: "Sources collectées — analyse Claude en cours (15–25s).",
+      },
+      { status: 202 }
+    );
   } catch (err) {
     return errorResponse(err);
   }

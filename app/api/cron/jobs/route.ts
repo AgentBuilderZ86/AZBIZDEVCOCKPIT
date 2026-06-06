@@ -41,11 +41,13 @@ export async function POST(req: NextRequest) {
     const job = await claimNextJob();
     if (!job) break;
 
+    // enrich.intel (Claude) peut prendre jusqu'à 40s dans la background function.
+    const timeoutMs = job.jobType === "enrich.intel" ? 45_000 : 22_000;
     try {
       await Promise.race([
         runIntelligenceJob(job),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("timeout_worker")), 22_000)
+          setTimeout(() => reject(new Error("timeout_worker")), timeoutMs)
         ),
       ]);
       processed.push({ id: job.id, jobType: job.jobType, status: "done" });
