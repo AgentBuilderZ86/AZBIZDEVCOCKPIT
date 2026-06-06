@@ -307,3 +307,44 @@ export interface OffreSynthesisPayload {
   accountsCovered: number;
   generatedAt: string;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Pipeline AO (Appels d'Offres) — isolé des opportunités Notion              */
+/* -------------------------------------------------------------------------- */
+
+export const AO_STATUTS = [
+  "BO", "BO_GO", "BO_NOGO", "P2P", "PP", "PW", "PL",
+] as const;
+export type AoStatut = (typeof AO_STATUTS)[number];
+
+export const AO_STATUT_LABELS: Record<AoStatut, string> = {
+  BO:     "BO",
+  BO_GO:  "BO Go ✓",
+  BO_NOGO:"BO NoGo ✗",
+  P2P:    "P2P",
+  PP:     "Pitch",
+  PW:     "Won ★",
+  PL:     "Lost",
+};
+
+export interface Ao {
+  id: string;
+  batchId: string;
+  titre: string;
+  client: string;
+  datePublication: string | null;
+  deadline: string | null;
+  budgetKEur: number | null;
+  description: string;
+  sourceUrl: string;
+  secteur: string;
+  scoreFit: number | null;
+  synthese: string;
+  suggestion: string;
+  statut: AoStatut;
+  compteNotionId: string;
+  compteNom: string;
+  notes: string;
+  importedAt: string;
+  updatedAt: string;
+}
