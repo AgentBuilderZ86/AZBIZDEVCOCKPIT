@@ -6,12 +6,15 @@ import {
   type Compte,
 } from "./types";
 
+export const CATEGORIES = ["Core Advisory", "Cross-sell", "Positionné", "Watchlist"] as const;
+
 /** Métadonnée des champs select (réutilisée par filtres + édition inline). */
 export const SELECT_FIELDS = {
   secteur: { label: "Secteur", options: SECTEURS },
   priorite: { label: "Priorité", options: PRIORITES },
   stage: { label: "Stage", options: STAGES },
   statutRelation: { label: "Statut relation", options: STATUTS_RELATION },
+  categorie: { label: "Catégorie", options: CATEGORIES },
 } as const;
 
 /** Map global valeur → classes Tailwind (partagé comptes + entités liées). */
@@ -46,6 +49,11 @@ const VALUE_COLORS: Record<string, string> = {
   Qualified: "bg-blue-100 text-blue-800",
   Proposal: "bg-purple-100 text-purple-800",
   Negotiation: "bg-orange-100 text-orange-800",
+  // Catégorie compte
+  "Core Advisory": "bg-blue-100 text-blue-700",
+  "Cross-sell": "bg-emerald-100 text-emerald-700",
+  "Positionné": "bg-amber-100 text-amber-700",
+  "Watchlist": "bg-gray-100 text-gray-500",
   // Score signal
   "5 - Critique": "bg-red-100 text-red-800",
   "4 - Élevé": "bg-orange-100 text-orange-800",

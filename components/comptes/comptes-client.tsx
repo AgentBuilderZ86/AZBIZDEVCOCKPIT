@@ -15,7 +15,16 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { Compte, CompteUpdate } from "@/lib/types";
+
+const CATEGORIES = [
+  { value: "", label: "Tous" },
+  { value: "Core Advisory", label: "🎯 Core Advisory" },
+  { value: "Cross-sell", label: "🤝 Cross-sell" },
+  { value: "Positionné", label: "📌 Positionné" },
+  { value: "Watchlist", label: "👁 Watchlist" },
+] as const;
 
 interface Props {
   initial: Compte[];
@@ -31,6 +40,7 @@ const EMPTY_FILTERS: FilterState = {
 export function ComptesClient({ initial }: Props) {
   const [comptes, setComptes] = React.useState<Compte[]>(initial);
   const [filters, setFilters] = React.useState<FilterState>(EMPTY_FILTERS);
+  const [categoryFilter, setCategoryFilter] = React.useState("");
   const [view, setView] = React.useState<"table" | "board">("table");
   const [pendingArchiveId, setPendingArchiveId] = React.useState<string | null>(null);
   const [archiving, setArchiving] = React.useState(false);
@@ -116,6 +126,7 @@ export function ComptesClient({ initial }: Props) {
 
   const filtered = React.useMemo(() => {
     return comptes.filter((c) => {
+      if (categoryFilter && c.categorie !== categoryFilter) return false;
       if (filters.secteur && c.secteur !== filters.secteur) return false;
       if (filters.priorite && c.priorite !== filters.priorite) return false;
       if (filters.stage && c.stage !== filters.stage) return false;
@@ -123,7 +134,7 @@ export function ComptesClient({ initial }: Props) {
         return false;
       return true;
     });
-  }, [comptes, filters]);
+  }, [comptes, filters, categoryFilter]);
 
   const pendingCompteName = pendingArchiveId
     ? comptes.find((c) => c.id === pendingArchiveId)?.compte ?? "ce compte"
@@ -131,6 +142,31 @@ export function ComptesClient({ initial }: Props) {
 
   return (
     <div className="space-y-4">
+      {/* Category tab bar */}
+      <div className="flex items-center gap-1 flex-wrap">
+        {CATEGORIES.map((cat) => {
+          const count = comptes.filter(c => cat.value === "" ? true : c.categorie === cat.value).length;
+          const isActive = categoryFilter === cat.value;
+          return (
+            <button
+              key={cat.value}
+              onClick={() => setCategoryFilter(cat.value)}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-all duration-150",
+                isActive
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              {cat.label}
+              <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-semibold", isActive ? "bg-white/20" : "bg-background/60")}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       <div className="flex items-center justify-between gap-2">
         <FiltersBar
           filters={filters}

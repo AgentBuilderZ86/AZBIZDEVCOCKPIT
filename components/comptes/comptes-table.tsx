@@ -18,6 +18,26 @@ import { sortComptes, type SortKey } from "@/lib/compte-ui";
 import type { Compte, CompteUpdate } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
+function getCategoryStyle(categorie: string | null | undefined) {
+  switch (categorie) {
+    case "Core Advisory": return { border: "border-l-blue-500", bg: "bg-blue-50/20", badge: "bg-blue-100 text-blue-700", dot: "bg-blue-500" };
+    case "Cross-sell":    return { border: "border-l-emerald-500", bg: "bg-emerald-50/15", badge: "bg-emerald-100 text-emerald-700", dot: "bg-emerald-500" };
+    case "Positionné":    return { border: "border-l-amber-500", bg: "bg-amber-50/20", badge: "bg-amber-100 text-amber-700", dot: "bg-amber-500" };
+    case "Watchlist":     return { border: "border-l-gray-300", bg: "", badge: "bg-gray-100 text-gray-500", dot: "bg-gray-400" };
+    default:              return { border: "border-l-transparent", bg: "", badge: "bg-muted text-muted-foreground", dot: "bg-muted-foreground/30" };
+  }
+}
+
+function getCategoryLabel(categorie: string | null | undefined) {
+  switch (categorie) {
+    case "Core Advisory": return "🎯";
+    case "Cross-sell":    return "🤝";
+    case "Positionné":    return "📌";
+    case "Watchlist":     return "👁";
+    default:              return null;
+  }
+}
+
 interface Props {
   comptes: Compte[];
   onUpdate: (id: string, patch: CompteUpdate) => Promise<void>;
@@ -75,24 +95,34 @@ export function ComptesTable({ comptes, onUpdate, onArchive }: Props) {
                 </span>
               </TableHead>
             ))}
+            <TableHead>Catégorie</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {sorted.length === 0 && (
             <TableRow>
-              <TableCell colSpan={COLUMNS.length + 1} className="h-24 text-center text-muted-foreground">
+              <TableCell colSpan={COLUMNS.length + 2} className="h-24 text-center text-muted-foreground">
                 Aucun compte.
               </TableCell>
             </TableRow>
           )}
-          {sorted.map((c) => (
-            <TableRow key={c.id} className="group transition-colors duration-150 hover:bg-primary/[0.025]">
+          {sorted.map((c) => {
+            const catStyle = getCategoryStyle(c.categorie);
+            return (
+            <TableRow key={c.id} className={cn("group transition-colors duration-150 hover:bg-primary/[0.025] border-l-4", catStyle.border, catStyle.bg)}>
               <TableCell className="min-w-[200px] font-medium">
-                <TextCell
-                  value={c.compte}
-                  onSave={(v) => onUpdate(c.id, { compte: String(v) })}
-                />
+                <div className="flex items-center gap-2">
+                  {getCategoryLabel(c.categorie) && (
+                    <span className="text-sm shrink-0" title={c.categorie ?? ""}>
+                      {getCategoryLabel(c.categorie)}
+                    </span>
+                  )}
+                  <TextCell
+                    value={c.compte}
+                    onSave={(v) => onUpdate(c.id, { compte: String(v) })}
+                  />
+                </div>
               </TableCell>
               <TableCell className="min-w-[150px]">
                 <SelectCell
@@ -140,6 +170,13 @@ export function ComptesTable({ comptes, onUpdate, onArchive }: Props) {
                   onSave={(v) => onUpdate(c.id, { arrPondere: v as number | null })}
                 />
               </TableCell>
+              <TableCell className="min-w-[140px]">
+                <SelectCell
+                  field="categorie"
+                  value={c.categorie}
+                  onSave={(v) => onUpdate(c.id, { categorie: v as string | null })}
+                />
+              </TableCell>
               <TableCell>
                 <div className="flex items-center justify-end gap-1 opacity-40 group-hover:opacity-100 transition-opacity duration-150">
                   <Button
@@ -184,7 +221,8 @@ export function ComptesTable({ comptes, onUpdate, onArchive }: Props) {
                 </div>
               </TableCell>
             </TableRow>
-          ))}
+            );
+          })}
         </TableBody>
       </Table>
     </div>

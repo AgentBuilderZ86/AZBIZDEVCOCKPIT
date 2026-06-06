@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BarChart3, Home, Building2, BookOpen, FileDown, Map, BookMarked } from "lucide-react";
+import { BarChart3, Home, Building2, BookOpen, FileDown, Map, BookMarked, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NavLink } from "./nav-link";
 
@@ -47,6 +47,7 @@ export function AppNav() {
           <NavLink href="/connaissance" label="Base de connaissance" icon={BookOpen} />
           <NavLink href="/roadmap" label="Roadmap" icon={Map} />
           <NavLink href="/methodologie" label="Méthode" icon={BookMarked} />
+          <NavLink href="/revue-partners" label="Revue Partners" icon={Users} />
         </div>
 
         {/* Rapport PDF à droite */}

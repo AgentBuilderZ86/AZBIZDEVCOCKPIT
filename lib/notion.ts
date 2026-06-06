@@ -129,6 +129,7 @@ export function notionPageToCompte(page: any): Compte {
     planStrategique: readRichText(p["Plan stratégique compte"]),
     date: readDate(p["Date"]),
     url: page.url ?? "",
+    categorie: readSelect(p["Catégorie"]) ?? null,
   };
 }
 
@@ -191,6 +192,7 @@ function compteUpdateToProps(update: CompteUpdate): Record<string, unknown> {
   if (update.planStrategique !== undefined)
     props["Plan stratégique compte"] = writeRichText(update.planStrategique);
   if (update.date !== undefined) props["Date"] = writeDate(update.date);
+  if (update.categorie !== undefined) props["Catégorie"] = writeSelect(update.categorie);
   return props;
 }
 
@@ -406,6 +408,26 @@ export async function listOpportunitesByCompte(
   const { db } = notionConfig();
   const pages = await queryByRelation(db.opportunites, "Compte", compteId);
   return pages.map(notionPageToOpportunite);
+}
+
+export async function listAllOpportunites(): Promise<Opportunite[]> {
+  const { db } = notionConfig();
+  const notion = getNotionClient();
+  const results: any[] = [];
+  let cursor: string | undefined = undefined;
+  do {
+    const resp: any = await withRetry(() =>
+      notion.databases.query({
+        database_id: db.opportunites,
+        start_cursor: cursor,
+        page_size: 100,
+        sorts: [{ property: "Montant (k€)", direction: "descending" }],
+      })
+    );
+    results.push(...resp.results);
+    cursor = resp.has_more ? resp.next_cursor : undefined;
+  } while (cursor);
+  return results.map(notionPageToOpportunite);
 }
 
 export async function listSignauxByCompte(compteId: string): Promise<Signal[]> {

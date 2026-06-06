@@ -48,6 +48,7 @@ export interface Compte {
   planStrategique: string;
   date: string | null;
   url: string;
+  categorie: string | null;
 }
 
 /** Champs éditables d'un compte (write-back). `id` exclu. */
