@@ -97,8 +97,8 @@ export async function generateAccountIntelligence(
   };
 
   const response = await getClient().messages.parse({
-    model: "claude-opus-4-8",
-    max_tokens: 4000,
+    model: "claude-sonnet-4-6",
+    max_tokens: 2048,
     system: [
       {
         type: "text",

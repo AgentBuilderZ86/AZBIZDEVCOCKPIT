@@ -1,7 +1,7 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { integrations } from "../config";
-import { getCompte360 } from "../notion";
+import { getCompte, listContactsByCompte, listOpportunitesByCompte, listSignauxByCompte } from "../notion";
 import { isIntelligenceEnabled, intelligenceConfig } from "./config";
 import { searchKnowledge } from "./knowledge";
 import { listAccountJournal } from "./journal";
@@ -45,28 +45,35 @@ export async function askAccountCopilot(
   const trimmed = question.trim();
   if (!trimmed) throw new Error("Question vide.");
 
-  const { compte, contacts, opportunites, signaux } = await getCompte360(compteId);
+  // Étape 1 : compte seul (~1s) — nécessaire pour filtrer le RAG par secteur/url
+  const compte = await getCompte(compteId);
 
-  let hits = await searchKnowledge(trimmed, {
-    sector: compte.secteur,
-    accountUrl: compte.url,
-    k: 8,
-  });
+  // Étape 2 : relations Notion + RAG + journal en parallèle (~3s au lieu de ~8s séquentiel)
+  const [relationsResult, hitsResult, journalResult] = await Promise.allSettled([
+    Promise.all([
+      listContactsByCompte(compteId),
+      listOpportunitesByCompte(compteId),
+      listSignauxByCompte(compteId),
+    ]),
+    (async () => {
+      let h = await searchKnowledge(trimmed, {
+        sector: compte.secteur,
+        accountUrl: compte.url,
+        k: 8,
+      });
+      if (h.length < 3 && compte.secteur) {
+        const broader = await searchKnowledge(trimmed, { sector: compte.secteur, k: 10 });
+        if (broader.length > h.length) h = broader;
+      }
+      return h;
+    })(),
+    listAccountJournal(compte.url, 12).catch(() => [] as Awaited<ReturnType<typeof listAccountJournal>>),
+  ]);
 
-  if (hits.length < 3 && compte.secteur) {
-    const broader = await searchKnowledge(trimmed, {
-      sector: compte.secteur,
-      k: 10,
-    });
-    if (broader.length > hits.length) hits = broader;
-  }
-
-  let journal: Awaited<ReturnType<typeof listAccountJournal>> = [];
-  try {
-    journal = await listAccountJournal(compte.url, 12);
-  } catch {
-    /* journal optionnel */
-  }
+  const [contacts, opportunites, signaux] =
+    relationsResult.status === "fulfilled" ? relationsResult.value : [[], [], []];
+  const hits = hitsResult.status === "fulfilled" ? hitsResult.value : [];
+  const journal = journalResult.status === "fulfilled" ? journalResult.value : [];
 
   const ragBlock =
     hits.length > 0

@@ -16,7 +16,6 @@ import {
 } from "./integrations/apollo";
 import { searchHunterContacts } from "./integrations/hunter";
 import { matchExploriumBusiness } from "./integrations/explorium";
-import { webResearchContacts } from "./integrations/websearch";
 import { generateAccountIntelligence } from "./integrations/claude";
 import {
   buildContactUpdateProposals,
@@ -75,8 +74,8 @@ export interface EnrichmentData {
 }
 
 /**
- * Phase 1 : collecte les données externes (Apollo, Hunter, web research).
- * Durée estimée : 35-50s. Ne fait aucun appel Claude.
+ * Phase 1 : collecte les données externes (Apollo, Hunter, Explorium).
+ * Durée estimée : 10-18s. Ne fait aucun appel Claude.
  */
 export async function buildEnrichmentData(
   compteId: string
@@ -87,10 +86,9 @@ export async function buildEnrichmentData(
   const sources: string[] = [];
   const people: (ApolloPerson & { telephone?: string | null })[] = [];
 
-  // 1a. Firmographie Apollo + Explorium + web en parallèle.
-  const [firmoRes, webRes, exploriumRes] = await Promise.all([
+  // 1a. Firmographie Apollo + Explorium en parallèle.
+  const [firmoRes, exploriumRes] = await Promise.all([
     enrichOrganization(compte.compte),
-    webResearchContacts(compte.compte),
     matchExploriumBusiness(compte.compte),
   ]);
 
@@ -138,19 +136,6 @@ export async function buildEnrichmentData(
     people.push(...hunterRes.data);
   }
 
-  if (webRes.error) {
-    warnings.push(`Recherche web : ${webRes.error}`);
-  } else if (webRes.data?.length) {
-    sources.push("Recherche web (LinkedIn / charika.ma)");
-    people.push(...webRes.data);
-  }
-
-  if (people.length === 0 && !webRes.error) {
-    warnings.push(
-      "Aucun contact public trouvé via la recherche web pour ce compte (LinkedIn/charika.ma souvent restreints). Saisie manuelle possible dans Notion."
-    );
-  }
-
   // 1c. Téléphones.
   let phoneMap: Record<string, string> = {};
   if (people.length > 0) {
@@ -189,7 +174,7 @@ export async function buildEnrichmentIntel(
       contacts,
       signaux,
     });
-    allSources.push("Claude (claude-opus-4-8)");
+    allSources.push("Claude (claude-sonnet-4-6)");
   } catch (err) {
     allWarnings.push(
       `Analyse Claude indisponible : ${err instanceof Error ? err.message : "erreur inconnue"}`
