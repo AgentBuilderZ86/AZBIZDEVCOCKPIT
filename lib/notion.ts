@@ -77,6 +77,16 @@ function readSelect(prop: any): string | null {
   return prop?.select?.name ?? null;
 }
 
+function readMultiSelect(prop: any): string[] {
+  return Array.isArray(prop?.multi_select)
+    ? (prop.multi_select as Array<{ name: string }>).map((o) => o.name)
+    : [];
+}
+
+function writeMultiSelect(values: string[]) {
+  return { multi_select: values.map((name) => ({ name })) };
+}
+
 function readNumber(prop: any): number | null {
   return typeof prop?.number === "number" ? prop.number : null;
 }
@@ -127,6 +137,7 @@ export function notionPageToCompte(page: any): Compte {
     effectif: readNumber(p["Effectif"]),
     notes: readRichText(p["Notes"]),
     planStrategique: readRichText(p["Plan stratégique compte"]),
+    offres: readMultiSelect(p["Offres"]),
     date: readDate(p["Date"]),
     url: page.url ?? "",
     categorie: readSelect(p["Catégorie"]) ?? null,
@@ -191,6 +202,8 @@ function compteUpdateToProps(update: CompteUpdate): Record<string, unknown> {
   if (update.notes !== undefined) props["Notes"] = writeRichText(update.notes);
   if (update.planStrategique !== undefined)
     props["Plan stratégique compte"] = writeRichText(update.planStrategique);
+  if (update.offres !== undefined)
+    props["Offres"] = writeMultiSelect(update.offres);
   if (update.date !== undefined) props["Date"] = writeDate(update.date);
   if (update.categorie !== undefined) props["Catégorie"] = writeSelect(update.categorie);
   return props;

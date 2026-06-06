@@ -46,6 +46,7 @@ export interface Compte {
   effectif: number | null;
   notes: string;
   planStrategique: string;
+  offres: string[];
   date: string | null;
   url: string;
   categorie: string | null;

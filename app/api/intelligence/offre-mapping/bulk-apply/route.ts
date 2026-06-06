@@ -77,7 +77,18 @@ export async function POST(req: NextRequest) {
             .join("\n");
 
           const newPlan = `## Synthèse Offre Sia\n${row.synthese_narrative}\n\n## Mapping Offres\n${offerLines}\n\n## Plan d'action\n${actionLines}`;
-          await updateCompte(row.compte_id, { planStrategique: newPlan });
+
+          // Offres Sia pertinentes (non-gap) → multi-select Notion "Offres"
+          const seen = new Set<string>();
+          const relevantOffres = mappingRows
+            .filter((m: OffreMappingRow) => m.coverage !== "gap")
+            .map((m: OffreMappingRow) => m.siaOffer)
+            .filter((o: string) => { if (seen.has(o)) return false; seen.add(o); return true; });
+
+          await updateCompte(row.compte_id, {
+            planStrategique: newPlan,
+            offres: relevantOffres,
+          });
         }
 
         if (body.applySignaux) {
