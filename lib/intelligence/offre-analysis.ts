@@ -248,8 +248,8 @@ export async function analyzeCompteOffres(
       listSignauxByCompte(compteId),
     ]),
     searchKnowledge(ragQuery, {
-      sector: compte.secteur,
-      accountUrl: compte.url,
+      // Pas de filtre accountUrl : les docs RAG sont génériques (propales, offres, méthodo).
+      // Pas de filtre sector : un doc cross-secteur doit remonter pour tous les comptes.
       k: 8,
     }),
   ]);
