@@ -35,4 +35,5 @@ export const integrations = {
   hunterApiKey: process.env.HUNTER_API_KEY ?? "",
   exploriumApiKey: process.env.EXPLORIUM_API_KEY ?? "",
   anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
+  slackWebhookUrl: process.env.SLACK_WEBHOOK_URL ?? "",
 };

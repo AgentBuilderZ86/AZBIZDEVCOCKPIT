@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { CopilotPanel } from "./copilot-panel";
 import { JournalPanel } from "./journal-panel";
 import { VeillePanel } from "./veille-panel";
+import { ScorePanel } from "./score-panel";
 
 interface Props {
   compteId: string;
@@ -56,6 +57,7 @@ export function CompteIntelligenceAside({
 
   return (
     <>
+      <ScorePanel compteId={compteId} enabled={intelligenceOn} />
       <CopilotPanel
         compteId={compteId}
         compteName={compteName}

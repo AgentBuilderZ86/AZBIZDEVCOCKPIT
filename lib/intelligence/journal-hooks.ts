@@ -7,6 +7,7 @@ import {
   type JournalEventType,
   type JournalSource,
 } from "./journal";
+import { alertStageHot } from "./slack-alerts";
 
 export type { JournalSource };
 import { isIntelligenceEnabled } from "./config";
@@ -40,6 +41,9 @@ export async function journalComptePatch(
       eventType: "stage_change",
       payload: { field: "stage", value: patch.stage },
     });
+    if (patch.stage === "Hot" || patch.stage === "Active") {
+      void alertStageHot(compte, patch.stage).catch(() => {});
+    }
   }
   if (patch.statutRelation !== undefined) {
     entries.push({
