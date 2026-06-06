@@ -38,6 +38,18 @@ function ExtLink({ url }: { url: string }) {
   );
 }
 
+function daysSince(iso: string): number {
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+}
+
+function daysUntil(iso: string): number {
+  return Math.floor((new Date(iso).getTime() - Date.now()) / 86400000);
+}
+
+function fmtDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "2-digit" });
+}
+
 export function Compte360Tabs({ contacts, opportunites, signaux }: Props) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -79,7 +91,22 @@ export function Compte360Tabs({ contacts, opportunites, signaux }: Props) {
               <TableBody>
                 {contacts.map((c) => (
                   <TableRow key={c.id}>
-                    <TableCell className="font-medium">{c.nomComplet || "—"}</TableCell>
+                    <TableCell className="min-w-[160px]">
+                      <p className="font-medium leading-tight">{c.nomComplet || "—"}</p>
+                      {(c.direction || c.roleDecisionnel) && (
+                        <p className="mt-0.5 text-xs text-muted-foreground/70 leading-tight">
+                          {[c.direction, c.roleDecisionnel].filter(Boolean).join(" · ")}
+                        </p>
+                      )}
+                      {c.derniereInteraction && (
+                        <p className={cn(
+                          "mt-0.5 text-xs leading-tight",
+                          daysSince(c.derniereInteraction) > 30 ? "text-orange-500" : "text-muted-foreground/50"
+                        )}>
+                          ↩ {fmtDate(c.derniereInteraction)}
+                        </p>
+                      )}
+                    </TableCell>
                     <TableCell>{c.titre || "—"}</TableCell>
                     <TableCell>{c.niveauInfluence ?? "—"}</TableCell>
                     <TableCell>
@@ -136,6 +163,7 @@ export function Compte360Tabs({ contacts, opportunites, signaux }: Props) {
                   <TableHead className="text-right">Montant (k€)</TableHead>
                   <TableHead className="text-right">Prob. %</TableHead>
                   <TableHead className="text-right">ARR pond. (k€)</TableHead>
+                  <TableHead>Clôture</TableHead>
                   <TableHead>Next step</TableHead>
                   <TableHead />
                 </TableRow>
@@ -143,7 +171,14 @@ export function Compte360Tabs({ contacts, opportunites, signaux }: Props) {
               <TableBody>
                 {opportunites.map((o) => (
                   <TableRow key={o.id}>
-                    <TableCell className="font-medium">{o.opportunite || "—"}</TableCell>
+                    <TableCell className="min-w-[180px]">
+                      <p className="font-medium leading-tight">{o.opportunite || "—"}</p>
+                      {o.notes && (
+                        <p className="mt-0.5 max-w-[240px] truncate text-xs text-muted-foreground/70 leading-tight line-clamp-1">
+                          {o.notes}
+                        </p>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {o.stage && (
                         <Badge className={cn("font-normal", valueBadgeClass(o.stage))}>
@@ -155,6 +190,19 @@ export function Compte360Tabs({ contacts, opportunites, signaux }: Props) {
                     <TableCell className="text-right">{o.probabilite ?? "—"}</TableCell>
                     <TableCell className="text-right">
                       {o.arrPondere != null ? o.arrPondere.toFixed(1) : "—"}
+                    </TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">
+                      {o.dateClose ? (
+                        <span className={cn(
+                          daysUntil(o.dateClose) < 0
+                            ? "text-muted-foreground/40 line-through"
+                            : daysUntil(o.dateClose) < 30
+                              ? "font-medium text-orange-600"
+                              : ""
+                        )}>
+                          {fmtDate(o.dateClose)}
+                        </span>
+                      ) : "—"}
                     </TableCell>
                     <TableCell className="max-w-[220px] truncate text-xs">
                       {o.nextStep || "—"}
