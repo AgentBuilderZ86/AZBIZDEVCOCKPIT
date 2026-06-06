@@ -197,44 +197,6 @@ export function OffreMappingPanel({ compteId, intelligenceOn }: Props) {
     if (intelligenceOn) void load();
   }, [intelligenceOn, load]);
 
-  const pollJob = useCallback(async (jobId: string): Promise<void> => {
-    const MAX_POLLS = 30;
-    for (let i = 0; i < MAX_POLLS; i++) {
-      await new Promise((r) => setTimeout(r, 3000));
-      try {
-        const res = await fetch(`/api/intelligence/jobs/${jobId}`);
-        const data = await parseApiJson(res);
-        const job = data.job as { status: string; error?: string } | undefined;
-        if (!job) continue;
-        if (job.status === "done") {
-          // Read from cache
-          const cacheRes = await fetch(`/api/compte/${compteId}/offre-analysis`);
-          const cacheData = await parseApiJson(cacheRes);
-          if (cacheData.analysis) {
-            setAnalysis(cacheData.analysis as OffreAnalysis);
-            setStatus("done");
-            toast.success("Analyse offre générée.");
-          } else {
-            setStatus("error");
-            setErrorMsg("Analyse introuvable après génération.");
-          }
-          return;
-        }
-        if (job.status === "failed") {
-          setStatus("error");
-          setErrorMsg(typeof job.error === "string" ? job.error : "Échec de l'analyse.");
-          toast.error("Échec de l'analyse offre.");
-          return;
-        }
-      } catch {
-        // transient network error — keep polling
-      }
-    }
-    setStatus("error");
-    setErrorMsg("Délai dépassé — relancez l'analyse.");
-    toast.error("Analyse trop longue, réessayez.");
-  }, [compteId]);
-
   const generate = useCallback(async () => {
     setStatus("generating");
     setErrorMsg(null);
@@ -249,22 +211,15 @@ export function OffreMappingPanel({ compteId, intelligenceOn }: Props) {
         toast.error(typeof data.error === "string" ? data.error : "Erreur génération.");
         return;
       }
-      if (data.queued && typeof data.jobId === "string") {
-        void pollJob(data.jobId);
-        return;
-      }
-      // Legacy: direct result
-      if (data.analysis) {
-        setAnalysis(data.analysis as OffreAnalysis);
-        setStatus("done");
-        toast.success("Analyse offre générée.");
-      }
+      setAnalysis(data.analysis as OffreAnalysis);
+      setStatus("done");
+      toast.success("Analyse offre générée.");
     } catch (err) {
       setStatus("error");
       setErrorMsg(err instanceof Error ? err.message : "Erreur réseau.");
       toast.error("Erreur lors de la génération.");
     }
-  }, [compteId, pollJob]);
+  }, [compteId]);
 
   const handleApply = useCallback(
     async (opts: { applyPlan: boolean; applySignaux: boolean }) => {
@@ -318,7 +273,7 @@ export function OffreMappingPanel({ compteId, intelligenceOn }: Props) {
       <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
         <p className="font-medium">Erreur lors du chargement de l'analyse.</p>
         {errorMsg && <p className="mt-1 font-mono text-xs opacity-80">{errorMsg}</p>}
-        <Button variant="outline" size="sm" className="mt-2" onClick={load}>
+        <Button variant="outline" size="sm" className="mt-2" onClick={generate}>
           Réessayer
         </Button>
       </div>
@@ -337,7 +292,7 @@ export function OffreMappingPanel({ compteId, intelligenceOn }: Props) {
         </p>
         <Button size="sm" className="mt-3" onClick={generate}>
           <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-          Générer l'analyse (Claude Opus)
+          Générer l'analyse (Claude Sonnet)
         </Button>
       </div>
     );
@@ -348,7 +303,7 @@ export function OffreMappingPanel({ compteId, intelligenceOn }: Props) {
       <div className="rounded-lg border p-5 text-center">
         <RefreshCw className="mx-auto mb-2 h-6 w-6 animate-spin text-primary" />
         <p className="text-sm text-muted-foreground">
-          Analyse en file d'attente (Claude Opus, ~30s)…
+          Analyse en cours (Claude Sonnet, ~15s)…
         </p>
       </div>
     );

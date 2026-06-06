@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCachedAnalysis } from "@/lib/intelligence/offre-analysis";
+import { analyzeCompteOffres, getCachedAnalysis } from "@/lib/intelligence/offre-analysis";
 import { isIntelligenceEnabled } from "@/lib/intelligence/config";
 import { integrations } from "@/lib/config";
-import { enqueueJob } from "@/lib/intelligence/jobs";
-import { triggerJobWorker } from "@/lib/intelligence/trigger-worker";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -49,12 +47,8 @@ export async function POST(
   }
 
   try {
-    const jobId = await enqueueJob("offre.analysis", { compteId: params.id });
-    if (!jobId) {
-      return NextResponse.json({ error: "Impossible d'enfiler l'analyse." }, { status: 500 });
-    }
-    triggerJobWorker(1);
-    return NextResponse.json({ queued: true, jobId }, { status: 202 });
+    const analysis = await analyzeCompteOffres(params.id, { forceRefresh: true });
+    return NextResponse.json({ analysis });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Erreur génération analyse.";
     return NextResponse.json({ error: message }, { status: 500 });

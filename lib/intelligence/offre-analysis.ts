@@ -276,8 +276,8 @@ Génère une analyse structurée en JSON respectant EXACTEMENT ce schéma (4 à 
 \`\`\``;
 
   const response = await getClient().messages.create({
-    model: "claude-opus-4-8",
-    max_tokens: 4096,
+    model: "claude-sonnet-4-6",
+    max_tokens: 2048,
     system: [
       {
         type: "text",
