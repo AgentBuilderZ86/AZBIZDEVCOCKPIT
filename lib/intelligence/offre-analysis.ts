@@ -1,7 +1,7 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { integrations } from "../config";
-import { getCompte360 } from "../notion";
+import { getCompte, listContactsByCompte, listOpportunitesByCompte, listSignauxByCompte } from "../notion";
 import { isIntelligenceEnabled } from "./config";
 import { searchKnowledge } from "./knowledge";
 import { getDb } from "./db";
@@ -172,7 +172,8 @@ export async function analyzeCompteOffres(
     if (cached) return cached;
   }
 
-  const { compte, contacts, signaux, opportunites } = await getCompte360(compteId);
+  // Étape 1 : compte seul (~1s) pour construire la requête RAG
+  const compte = await getCompte(compteId);
 
   const ragQuery = [
     compte.secteur ?? "",
@@ -182,31 +183,30 @@ export async function analyzeCompteOffres(
     .filter(Boolean)
     .join(" ");
 
-  let hits = await searchKnowledge(ragQuery, {
-    sector: compte.secteur,
-    accountUrl: compte.url,
-    k: 10,
-  });
-
-  if (hits.length < 4 && compte.secteur) {
-    const broader = await searchKnowledge(ragQuery, {
+  // Étape 2 : relations Notion + RAG en parallèle (~3-4s au lieu de ~8s séquentiel)
+  const [relationsResult, hitsResult] = await Promise.allSettled([
+    Promise.all([
+      listContactsByCompte(compteId),
+      listOpportunitesByCompte(compteId),
+      listSignauxByCompte(compteId),
+    ]),
+    searchKnowledge(ragQuery, {
       sector: compte.secteur,
-      k: 12,
-    });
-    if (broader.length > hits.length) hits = broader;
-  }
+      accountUrl: compte.url,
+      k: 8,
+    }),
+  ]);
 
-  if (hits.length < 4) {
-    const global = await searchKnowledge(ragQuery, { k: 15 });
-    if (global.length > hits.length) hits = global;
-  }
+  const [contacts, opportunites, signaux] =
+    relationsResult.status === "fulfilled" ? relationsResult.value : [[], [], []];
+  const hits = hitsResult.status === "fulfilled" ? hitsResult.value : [];
 
   const ragContext =
     hits.length > 0
       ? hits
           .map(
             (h, i) =>
-              `[Doc ${i + 1}] « ${h.doc.title} » (${h.doc.sourceType}${h.doc.sector ? `, ${h.doc.sector}` : ""})\n${h.chunkText.slice(0, 800)}`
+              `[Doc ${i + 1}] « ${h.doc.title} » (${h.doc.sourceType}${h.doc.sector ? `, ${h.doc.sector}` : ""})\n${h.chunkText.slice(0, 600)}`
           )
           .join("\n\n")
       : "Aucun document indexé trouvé pour ce compte.";
@@ -220,20 +220,20 @@ export async function analyzeCompteOffres(
       scoreAdilStar: compte.scoreAdilStar,
       effectif: compte.effectif,
       caEstime: compte.caEstime,
-      planStrategique: compte.planStrategique?.slice(0, 1200) || null,
+      planStrategique: compte.planStrategique?.slice(0, 800) || null,
     },
-    contacts: contacts.slice(0, 10).map((c) => ({
+    contacts: contacts.slice(0, 5).map((c) => ({
       nom: c.nomComplet,
       titre: c.titre,
       influence: c.niveauInfluence,
       statut: c.statutContact,
     })),
-    signaux: signaux.slice(0, 6).map((s) => ({
+    signaux: signaux.slice(0, 3).map((s) => ({
       titre: s.titre,
       type: s.typeSignal,
       score: s.scoreOpportunite,
     })),
-    opportunites: opportunites.slice(0, 5).map((o) => ({
+    opportunites: opportunites.slice(0, 3).map((o) => ({
       nom: o.opportunite,
       stage: o.stage,
       montant: o.montant,
@@ -277,7 +277,7 @@ Génère une analyse structurée en JSON respectant EXACTEMENT ce schéma (4 à 
 
   const response = await getClient().messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 2048,
+    max_tokens: 1024,
     system: [
       {
         type: "text",
