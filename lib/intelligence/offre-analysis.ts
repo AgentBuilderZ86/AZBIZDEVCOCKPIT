@@ -74,7 +74,7 @@ function parseActionStep(raw: unknown, index: number): ActionStep | null {
   return { order, horizon, action, targetContacts, linkedOffer };
 }
 
-async function getCachedAnalysis(compteId: string): Promise<OffreAnalysis | null> {
+export async function getCachedAnalysis(compteId: string): Promise<OffreAnalysis | null> {
   if (!isIntelligenceEnabled()) return null;
   try {
     const db = getDb();
