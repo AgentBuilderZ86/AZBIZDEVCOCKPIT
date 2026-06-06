@@ -25,9 +25,9 @@ const WAVES = [
     id: 2,
     label: "Vague 2",
     title: "Intelligence",
-    state: "En cours",
-    stateIcon: Zap,
-    color: { bg: "bg-orange-50", border: "border-orange-200", badge: "bg-orange-100 text-orange-800", dot: "bg-orange-500", icon: "text-orange-600", header: "from-orange-500 to-amber-500" },
+    state: "Livré",
+    stateIcon: CheckCircle2,
+    color: { bg: "bg-emerald-50", border: "border-emerald-200", badge: "bg-emerald-100 text-emerald-800", dot: "bg-emerald-500", icon: "text-emerald-600", header: "from-emerald-600 to-emerald-500" },
     description: "Couche d'intelligence continue — apprentissage, mémoire long terme, veille automatique.",
     items: [
       { icon: Brain, text: "Copilot RAG (pgvector)", detail: "Q&A contextualisé sur la base de connaissance" },
@@ -54,7 +54,7 @@ const WAVES = [
     items: [
       { icon: Brain, text: "Scoring prédictif ML", detail: "Modèle entraîné sur l'historique des deals" },
       { icon: Users, text: "Multi-utilisateur & rôles", detail: "Accès équipe, permissions par compte/secteur" },
-      { icon: Bell, text: "Alertes Slack / Teams", detail: "Push notifications sur signaux critiques" },
+      { icon: Bell, text: "Alertes Slack", detail: "Push Block Kit : score ±10pts, stage Hot, signal critique" },
       { icon: MessageSquare, text: "Séquences email Apollo", detail: "Outreach automatisé depuis le cockpit" },
       { icon: Globe, text: "Intégration CRM natif", detail: "Sync bi-directionnelle Salesforce / HubSpot" },
       { icon: RefreshCw, text: "API publique BizDev OS", detail: "Endpoints REST pour intégrations externes" },
@@ -66,8 +66,8 @@ const WAVES = [
 
 const PROGRESS = [
   { label: "Vague 1 · Fondations", pct: 100, color: "bg-emerald-500" },
-  { label: "Vague 2 · Intelligence", pct: 88, color: "bg-orange-500" },
-  { label: "Vague 3 · Vision", pct: 10, color: "bg-violet-500" },
+  { label: "Vague 2 · Intelligence", pct: 100, color: "bg-emerald-500" },
+  { label: "Vague 3 · Vision", pct: 20, color: "bg-violet-500" },
 ];
 
 export default function RoadmapPage() {

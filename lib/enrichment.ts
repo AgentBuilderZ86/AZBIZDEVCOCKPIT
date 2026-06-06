@@ -1,11 +1,13 @@
 import "server-only";
 import {
   getCompte360,
+  getCompte,
   createContact,
   createSignal,
   updateCompteFields,
   updateContact,
 } from "./notion";
+import { alertCriticalSignal } from "./intelligence/slack-alerts";
 import {
   enrichOrganization,
   searchDecisionMakers,
@@ -289,6 +291,18 @@ export async function applyEnrichment(
   }
 
   let signauxCreated = 0;
+  const criticalSignaux = (payload.signaux ?? []).filter((s) => {
+    const n = s.scoreOpportunite ? parseInt(s.scoreOpportunite, 10) : 0;
+    return n >= 4;
+  });
+  if (criticalSignaux.length > 0) {
+    const alertCompte = await getCompte(compteId).catch(() => null);
+    if (alertCompte) {
+      for (const s of criticalSignaux) {
+        void alertCriticalSignal(alertCompte, s.titre, s.scoreOpportunite ?? null, s.sourceUrl ?? null).catch(() => {});
+      }
+    }
+  }
   for (const draft of payload.signaux ?? []) {
     await createSignal(compteId, draft);
     signauxCreated++;

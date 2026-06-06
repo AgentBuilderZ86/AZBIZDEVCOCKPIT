@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertCronAuthorized } from "@/lib/cron-auth";
 import { journalCronScoreChange } from "@/lib/intelligence/journal-hooks";
+import { alertScoreChange } from "@/lib/intelligence/slack-alerts";
 import {
   buildScoreFeatures,
   recordOutcomeEvent,
@@ -72,6 +73,7 @@ export async function POST(req: NextRequest) {
           { journalSource: "cron" }
         );
         void journalCronScoreChange(c, c.scoreAdilStar, next).catch(() => {});
+        void alertScoreChange(c, c.scoreAdilStar, next).catch(() => {});
         void recordScoreHistory(c, next, featuresWithScores, {
           ...learnedWeights,
         }).catch(() => {});
