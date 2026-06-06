@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { badgeClass, valueBadgeClass } from "@/lib/compte-ui";
 import { cn } from "@/lib/utils";
+import { OffreSynthesisWidget } from "@/components/dashboard/offre-synthesis-widget";
+import { isIntelligenceEnabled } from "@/lib/intelligence/config";
 import type { Compte } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +14,7 @@ export const dynamic = "force-dynamic";
 export default async function HomePage() {
   let comptes: Compte[] = [];
   let error: string | null = null;
+  const intelligenceOn = isIntelligenceEnabled();
 
   try {
     comptes = await listComptes();
@@ -101,6 +104,14 @@ export default async function HomePage() {
               </div>
             ))}
           </section>
+
+          {/* Synthèse Offres 360 */}
+          {intelligenceOn && (
+            <section className="mb-4">
+              <h2 className="mb-2 text-sm font-semibold text-foreground">Synthèse Offres 360°</h2>
+              <OffreSynthesisWidget />
+            </section>
+          )}
 
           {/* 2-col layout : Comptes prioritaires + Tableau de bord rapide */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_280px]">

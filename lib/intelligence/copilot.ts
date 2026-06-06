@@ -53,12 +53,17 @@ export async function askAccountCopilot(
     k: 8,
   });
 
-  if (hits.length < 2 && compte.secteur) {
+  if (hits.length < 3 && compte.secteur) {
     const broader = await searchKnowledge(trimmed, {
       sector: compte.secteur,
-      k: 8,
+      k: 10,
     });
     if (broader.length > hits.length) hits = broader;
+  }
+
+  if (hits.length < 3) {
+    const global = await searchKnowledge(trimmed, { k: 12 });
+    if (global.length > hits.length) hits = global;
   }
 
   let journal: Awaited<ReturnType<typeof listAccountJournal>> = [];

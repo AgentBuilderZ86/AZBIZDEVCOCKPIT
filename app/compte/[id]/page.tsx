@@ -10,6 +10,7 @@ import { Compte360Tabs } from "@/components/compte/compte-360-tabs";
 import { PlanBlock } from "@/components/compte/plan-block";
 import { EnrichDialog } from "@/components/compte/enrich-dialog";
 import { CompteIntelligenceAside } from "@/components/compte/compte-intelligence-aside";
+import { OffreMappingPanel } from "@/components/compte/offre-mapping-panel";
 import { isIntelligenceEnabled, intelligenceConfig } from "@/lib/intelligence/config";
 import { valueBadgeClass } from "@/lib/compte-ui";
 import { cn } from "@/lib/utils";
@@ -141,10 +142,16 @@ export default async function ComptePage({ params }: { params: { id: string } })
 
       {/* Corps : tabs + plan stratégique */}
       <section className="mt-4 grid gap-4 lg:grid-cols-[2fr_1fr]">
-        <div>
+        <div className="space-y-4">
           <Suspense fallback={<div className="h-48 animate-pulse rounded-md bg-muted" />}>
             <Compte360Tabs contacts={contacts} opportunites={opportunites} signaux={signaux} />
           </Suspense>
+          <div>
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Offre Mapping &amp; Plan d'Action
+            </h2>
+            <OffreMappingPanel compteId={compte.id} intelligenceOn={intelligenceOn} />
+          </div>
         </div>
         <div className="space-y-4">
           <div>

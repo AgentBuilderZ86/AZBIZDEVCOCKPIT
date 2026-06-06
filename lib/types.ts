@@ -260,3 +260,48 @@ export interface EnrichmentApply {
   contactUpdates?: ContactUpdateApply[];
   signaux?: SignalDraft[];
 }
+
+/* -------------------------------------------------------------------------- */
+/* Analyse Offre (Offre Mapping + Plan d'Action)                              */
+/* -------------------------------------------------------------------------- */
+
+export type CoverageIndicator = "rag_indexed" | "expertise_sia" | "gap";
+
+export interface OffreMappingRow {
+  topic: string;
+  siaOffer: string;
+  coverage: CoverageIndicator;
+  ragDocTitles: string[];
+  rationale: string;
+}
+
+export interface ActionStep {
+  order: number;
+  horizon: "J+7" | "J+30" | "J+90" | "J+180";
+  action: string;
+  targetContacts: string[];
+  linkedOffer: string | null;
+}
+
+export interface OffreAnalysis {
+  compteId: string;
+  generatedAt: string;
+  mappingRows: OffreMappingRow[];
+  actionSteps: ActionStep[];
+  syntheseNarrative: string;
+}
+
+export interface OffreSynthesisRow {
+  siaOffer: string;
+  accountCount: number;
+  dominantCoverage: CoverageIndicator;
+  topTopics: string[];
+}
+
+export interface OffreSynthesisPayload {
+  synthesisRows: OffreSynthesisRow[];
+  hotTopics: Array<{ topic: string; frequency: number; sectors: string[] }>;
+  coverageSummary: { rag_indexed: number; expertise_sia: number; gap: number };
+  accountsCovered: number;
+  generatedAt: string;
+}
