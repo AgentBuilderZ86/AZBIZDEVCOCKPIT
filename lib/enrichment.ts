@@ -11,7 +11,6 @@ import { alertCriticalSignal } from "./intelligence/slack-alerts";
 import {
   enrichOrganization,
   searchDecisionMakers,
-  revealPhones,
   type ApolloPerson,
 } from "./integrations/apollo";
 import { searchHunterContacts } from "./integrations/hunter";
@@ -138,20 +137,6 @@ export async function buildEnrichmentData(
 
   // 1c. Téléphones.
   let phoneMap: Record<string, string> = {};
-  if (people.length > 0) {
-    const ordered = [...people].sort(
-      (a, b) => Number(isAchats(b.titre)) - Number(isAchats(a.titre))
-    );
-    const phoneRes = await revealPhones(ordered, firmo?.domain ?? null);
-    if (phoneRes.error) {
-      if (!isKnownProviderLimit(phoneRes.error))
-        warnings.push(`Téléphones Apollo : ${phoneRes.error}`);
-    } else {
-      phoneMap = phoneRes.data ?? {};
-      if (Object.keys(phoneMap).length > 0) sources.push("Apollo (téléphones)");
-    }
-  }
-
   return { compteId, compte, contacts, signaux, firmo, people, phoneMap, warnings, sources };
 }
 

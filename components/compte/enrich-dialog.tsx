@@ -61,87 +61,38 @@ export function EnrichDialog({ compteId }: Props) {
   const [contactUpdatesSel, setContactUpdatesSel] = React.useState<boolean[]>([]);
   const [signauxSel, setSignauxSel] = React.useState<boolean[]>([]);
 
-  async function pollJob(jobId: string): Promise<Record<string, unknown>> {
-    const res = await fetch(`/api/intelligence/jobs/${jobId}`);
-    const data = await parseApiJson(res);
-    if (!res.ok) throw new Error(String(data.error ?? "Job introuvable."));
-    const job = data.job as Record<string, unknown> | undefined;
-    if (!job) throw new Error("Job introuvable.");
-    if (job.status === "failed") throw new Error(String(job.error ?? "Échec de l'enrichissement."));
-    return job;
-  }
-
-  async function pollEnrichJob(dataJobId: string): Promise<EnrichmentProposal> {
-    // Phase A : poll enrich.data (~30-45s) — 30 tentatives × 3s = 90s
-    const phaseASteps = [
-      "Interrogation des sources Apollo…",
-      "Analyse Explorium & décideurs…",
-      "Recherche Hunter & contacts…",
-      "Révélation des téléphones…",
-    ];
-    for (let i = 0; i < 30; i++) {
-      await new Promise((r) => setTimeout(r, 3000));
-      setLoadingProgress(Math.round(((i + 1) / 30) * 45)); // 0 → 45%
-      setLoadingStatus(phaseASteps[Math.min(i, phaseASteps.length - 1)]);
-
-      const job = await pollJob(dataJobId);
-      if (job.status === "done") {
-        const result = job.result as { intelJobId?: string } | null;
-        if (!result?.intelJobId) throw new Error("Job intel introuvable dans le résultat.");
-        // Phase B : poll enrich.intel (~15-25s) — 20 tentatives × 3s = 60s
-        return pollEnrichIntel(String(result.intelJobId));
-      }
-    }
-    throw new Error("Délai dépassé (phase données). Réessayez.");
-  }
-
-  async function pollEnrichIntel(intelJobId: string): Promise<EnrichmentProposal> {
-    const phaseBSteps = [
-      "Analyse Claude Sonnet en cours…",
-      "Calcul du score AdilStar…",
-      "Rédaction du plan stratégique…",
-      "Assemblage de la proposition…",
-    ];
-    for (let i = 0; i < 20; i++) {
-      await new Promise((r) => setTimeout(r, 3000));
-      setLoadingProgress(45 + Math.round(((i + 1) / 20) * 50)); // 45 → 95%
-      setLoadingStatus(phaseBSteps[Math.min(i, phaseBSteps.length - 1)]);
-
-      const job = await pollJob(intelJobId);
-      if (job.status === "done") {
-        const result = job.result as { proposal?: EnrichmentProposal } | null;
-        if (!result?.proposal) throw new Error("Proposition absente du résultat.");
-        return result.proposal;
-      }
-    }
-    throw new Error("Délai dépassé (analyse Claude). Réessayez.");
-  }
-
   async function runEnrich() {
     setOpen(true);
     setLoading(true);
     setProposal(null);
     setLoadingProgress(0);
-    setLoadingStatus("Lancement de l'enrichissement…");
+    setLoadingStatus("Collecte des sources (Apollo · Hunter · Explorium)…");
     try {
+      // Lance un timer d'avancement visuel pendant l'attente (~20s)
+      const steps = [
+        { at: 4000,  pct: 15, label: "Analyse des données firmographiques…" },
+        { at: 8000,  pct: 30, label: "Recherche des décideurs & emails…" },
+        { at: 13000, pct: 50, label: "Analyse Claude Sonnet en cours…" },
+        { at: 18000, pct: 70, label: "Calcul du score AdilStar…" },
+        { at: 22000, pct: 85, label: "Rédaction du plan stratégique…" },
+      ];
+      const timers = steps.map(({ at, pct, label }) =>
+        setTimeout(() => {
+          setLoadingProgress(pct);
+          setLoadingStatus(label);
+        }, at)
+      );
+
       const res = await fetch(`/api/comptes/${compteId}/enrich`, { method: "POST" });
+      timers.forEach(clearTimeout);
+
       const data = await parseApiJson(res);
-      if (!res.ok) throw new Error(data.error ?? "Échec de l'enrichissement.");
+      if (!res.ok) throw new Error(String(data.error ?? "Échec de l'enrichissement."));
 
-      // Le POST retourne maintenant 202 + jobId — on poll le job.
-      if (res.status === 202 && data.queued && data.jobId) {
-        toast.info(String(data.message ?? "Enrichissement en cours…"));
-        const p = await pollEnrichJob(String(data.jobId));
-        setProposal(p);
-        setFields(new Set(Object.keys(p.proposed) as FieldKey[]));
-        setContactsSel(p.newContacts.map(() => true));
-        setContactUpdatesSel((p.contactUpdates ?? []).map(() => true));
-        setSignauxSel(p.newSignaux.map(() => true));
-        return;
-      }
-
-      // Fallback synchrone (si intelligence désactivée côté route)
       const p = data.proposal as EnrichmentProposal;
+      if (!p) throw new Error("Proposition absente de la réponse.");
+
+      setLoadingProgress(100);
       setProposal(p);
       setFields(new Set(Object.keys(p.proposed) as FieldKey[]));
       setContactsSel(p.newContacts.map(() => true));
@@ -243,7 +194,7 @@ export function EnrichDialog({ compteId }: Props) {
                   {loadingStatus || "Enrichissement en cours…"}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Apollo · Hunter · Claude — 20–40 secondes
+                  Apollo · Hunter · Claude Sonnet — 20–30 secondes
                 </p>
               </div>
               <div className="space-y-1">

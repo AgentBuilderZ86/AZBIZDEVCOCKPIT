@@ -1,17 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { applyEnrichment } from "@/lib/enrichment";
-import { enqueueJob } from "@/lib/intelligence/jobs";
-import { triggerJobWorker } from "@/lib/intelligence/trigger-worker";
+import { buildEnrichmentData, buildEnrichmentIntel, applyEnrichment } from "@/lib/enrichment";
 import { isIntelligenceEnabled } from "@/lib/intelligence/config";
-import { JOB_ENRICH_DATA } from "@/lib/intelligence/job-runner";
+import { integrations } from "@/lib/config";
 import type { EnrichmentApply } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
-// POST est maintenant async — le worker traite le job en arrière-plan.
-// PUT (apply) reste synchrone : c'est uniquement des écritures Notion < 5s.
+// Phase 1 (~8-12s) + Phase 2 Sonnet (~8-15s) = ~16-27s total.
 export const maxDuration = 30;
 
-/** POST → enfile un job enrich.proposal et retourne le jobId pour polling. */
+/** POST → collecte sources + analyse Claude, retourne la proposition directement. */
 export async function POST(
   _req: NextRequest,
   { params }: { params: { id: string } }
@@ -19,35 +16,21 @@ export async function POST(
   try {
     if (!isIntelligenceEnabled()) {
       return NextResponse.json(
-        { error: "DATABASE_URL absente — jobs inactifs." },
+        { error: "DATABASE_URL absente — couche Intelligence inactive." },
         { status: 503 }
       );
     }
-
-    const day = new Date().toISOString().slice(0, 10);
-    const jobId = await enqueueJob(
-      JOB_ENRICH_DATA,
-      { compteId: params.id },
-      `enrich.data:${params.id}:${day}`
-    );
-    if (!jobId) {
-      return NextResponse.json(
-        { error: "Enrichissement déjà en cours aujourd'hui ou file indisponible." },
-        { status: 409 }
-      );
+    if (!integrations.anthropicApiKey) {
+      return NextResponse.json({ error: "ANTHROPIC_API_KEY absente." }, { status: 503 });
     }
 
-    // Déclenche immédiatement le worker (fire-and-forget).
-    triggerJobWorker(1);
+    // Phase 1 : Apollo + Hunter + Explorium (~8-12s)
+    const data = await buildEnrichmentData(params.id);
 
-    return NextResponse.json(
-      {
-        queued: true,
-        jobId,
-        message: "Enrichissement en cours (Apollo + Claude) — 60–80s selon les sources.",
-      },
-      { status: 202 }
-    );
+    // Phase 2 : Claude Sonnet → proposition finale (~8-15s)
+    const proposal = await buildEnrichmentIntel(data);
+
+    return NextResponse.json({ proposal });
   } catch (err) {
     return errorResponse(err);
   }
