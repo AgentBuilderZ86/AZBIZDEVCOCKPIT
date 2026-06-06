@@ -24,9 +24,22 @@ interface Props {
 /* Helpers                                                              */
 /* ------------------------------------------------------------------ */
 
-/** Deals Adil : toute opportunité sans le préfixe 👥 (collègue). */
+const COLLEAGUE_NAMES = [
+  "Houda Al Alami", "Farah Rhouni", "Iliass Terchoune",
+  "Ghita Arhmir", "Mohamed Drouach",
+];
+
+/**
+ * Deal Adil = aucun indicateur collègue dans le titre.
+ * On cherche l'emoji 👥 N'IMPORTE OÙ dans la chaîne
+ * (certains deals ont "Titre 👥 Manager" au lieu de "👥 Manager — Titre")
+ * et on vérifie aussi la présence du nom du manager.
+ */
 function isAdilOpp(o: Opportunite) {
-  return !o.opportunite.startsWith("👥");
+  const t = o.opportunite;
+  if (t.includes("👥")) return false;
+  if (COLLEAGUE_NAMES.some(n => t.includes(n))) return false;
+  return true;
 }
 
 function filterOpps(opps: Opportunite[], view: ViewMode): Opportunite[] {
