@@ -90,18 +90,105 @@ sur `main` sauf pour des hotfixes de build (TypeScript, lint).
 
 ---
 
+## Règle n°5 — Netlify : limites et architecture async obligatoire
+
+### Limite 26s ABSOLUE
+Netlify tue toute fonction serverless à **26 secondes** sans exception.
+`maxDuration` est une option Vercel uniquement — elle est **ignorée sur Netlify**.
+
+### Règle : ne jamais mettre >20s de travail dans une route synchrone
+- Toute opération IA (Claude) + sources externes (Apollo/Hunter) dépasse 26s ensemble.
+- Solution obligatoire : séparer en Phase 1 synchrone (<15s) + Phase 2 async.
+
+### Architecture approuvée pour les features longues (enrichissement, offre-analysis)
+
+```
+Route POST (~6-15s)          Background Function (∞)
+─────────────────────        ──────────────────────────
+1. Collecte sources          4. Claude Sonnet (~15-25s)
+2. Queue job DB              5. completeJob(result)
+3. Trigger bg function ──►
+4. Return 202 + jobId
+
+Client : poll /api/intelligence/jobs/[jobId] toutes les 3s
+```
+
+### Fichier background function (pattern obligatoire)
+- Placer dans `netlify/functions/NOM-background.mts` (suffixe `-background` = Netlify retourne 202 immédiatement)
+- La fonction appelle `/api/cron/jobs?limit=1` pour déléguer au worker Next.js existant
+- Ne jamais importer `lib/` directement depuis une Netlify Function (risque de compilation)
+
+```typescript
+// netlify/functions/xxx-background.mts
+export default async function handler() {
+  const base = process.env.URL ?? process.env.DEPLOY_PRIME_URL ?? "";
+  const res = await fetch(`${base}/api/cron/jobs?limit=1`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${process.env.CRON_SECRET ?? ""}` },
+  });
+  return new Response(await res.text(), { status: res.status });
+}
+export const config: Config = { path: "/api/xxx-bg" };
+```
+
+### `triggerJobWorker` est NON FIABLE sur Netlify
+`triggerJobWorker` utilise un fetch fire-and-forget. Netlify gèle la fonction dès qu'elle retourne une réponse — le fetch est annulé. **Ne jamais compter sur `triggerJobWorker` pour déclencher un job critique.** Utiliser une Background Function à la place.
+
+### timeout_worker dans `/api/cron/jobs`
+- Jobs courts (veille, knowledge.ingest) : 22s
+- `enrich.intel` (Claude Sonnet) : **45s** (configuré par job type dans la route)
+
+---
+
+## Règle n°6 — Polling : lire `data.job.status`, pas `data.status`
+
+La route `GET /api/intelligence/jobs/[id]` retourne `{ job: { status, result, error } }`.
+
+```typescript
+// ❌ FAUX — data.status est undefined (le job est imbriqué)
+const data = await parseApiJson(res);
+if (data.status === "done") { ... }        // ne fire jamais
+if (data.status === "failed") { ... }      // ne fire jamais
+
+// ✅ CORRECT — extraire data.job d'abord
+const data = await parseApiJson(res);
+const job = data.job as { status: string; result?: ...; error?: string } | undefined;
+if (!job) continue;
+if (job.status === "failed") throw new Error(String(job.error ?? "Échec."));
+if (job.status === "done") { /* utiliser job.result */ }
+```
+
+Ce bug a causé les phases A de polling d'enrichissement à tourner 90s puis timeout.
+
+---
+
+## Règle n°7 — Modèles IA et budgets tokens
+
+| Fonction | Modèle | max_tokens | Durée approx. |
+|----------|--------|-----------|---------------|
+| Enrichissement intel (`generateAccountIntelligence`) | `claude-sonnet-4-6` | 1200 | 8-15s |
+| Copilot (`askAccountCopilot`) | `claude-sonnet-4-6` | 2048 | 8-15s |
+| Offre mapping (`analyzeCompteOffres`) | `claude-sonnet-4-6` | 3000 | 10-20s |
+
+- **Ne jamais utiliser `claude-opus-4-8`** pour des routes synchrones — trop lent (15-25s).
+- **Ne jamais dépasser 2048 tokens** pour une réponse dans une route synchrone Netlify.
+- `revealPhones` Apollo supprimé — trop lent (3-5s) et non nécessaire (emails suffisent).
+- `webResearchContacts` supprimé — 8-15s, dépasse systématiquement le budget worker.
+
+---
+
 ## Stack technique de référence
 
 | Couche | Technologie |
 |--------|------------|
 | Framework | Next.js 14 App Router + TypeScript strict |
 | UI | shadcn/ui + Tailwind CSS |
-| Base de données | PostgreSQL + pgvector |
-| IA | Anthropic SDK (`claude-opus-4-8` enrichissement, `claude-sonnet-4-6` NBA) |
+| Base de données | PostgreSQL + pgvector (Neon/Supabase) |
+| IA | Anthropic SDK (`claude-sonnet-4-6` pour tout) |
 | Source de vérité | Notion SDK (`@notionhq/client`) |
 | Sources externes | Apollo.io, Hunter.io, Explorium |
 | PDF | `@react-pdf/renderer` |
-| Déploiement | Netlify (Next.js Runtime v5, Scheduled Functions) |
+| Déploiement | Netlify (Next.js Runtime v5, Scheduled Functions, Background Functions) |
 
 ---
 
@@ -112,3 +199,7 @@ sur `main` sauf pour des hotfixes de build (TypeScript, lint).
 | 2026-06-05 | `copilot-panel.tsx:74` | `Type 'unknown' is not assignable to type 'string'` sur `data.answer` | `String(data.answer ?? "")` |
 | 2026-06-05 | `journal-panel.tsx:48` | `Property 'map' does not exist on type '{}'` sur `data.events` | `(data.events as (JournalEvent & { eventDate?: string })[]) ?? []` |
 | 2026-06-05 | `veille-panel.tsx:30` | `toast.info` reçoit `unknown` au lieu de `string` | `typeof data.message === "string" ? data.message : "Fallback"` |
+| 2026-06-06 | `enrich-dialog.tsx` | Polling tourne 90s sans détecter "done" | `data.job.status` pas `data.status` (route retourne `{ job: {...} }`) |
+| 2026-06-06 | `enrich/route.ts` | Timeout Netlify 26s sur enrichissement | Architecture Background Function : Phase 1 sync (<6s) + Phase 2 via `enrich-intel-background.mts` |
+| 2026-06-06 | `job-runner.ts` | `triggerJobWorker` fire-and-forget tué par Netlify | Remplacé par Background Function pour les jobs critiques |
+| 2026-06-06 | `enrichment.ts` | Phase 1 séquentielle 8-12s | Toutes sources en parallèle simultané → 4-6s |
