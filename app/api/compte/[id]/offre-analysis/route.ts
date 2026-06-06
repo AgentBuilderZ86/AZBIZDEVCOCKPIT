@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { analyzeCompteOffres } from "@/lib/intelligence/offre-analysis";
+import { analyzeCompteOffres, getCachedAnalysis } from "@/lib/intelligence/offre-analysis";
 import { isIntelligenceEnabled } from "@/lib/intelligence/config";
 import { integrations } from "@/lib/config";
 
@@ -18,16 +18,17 @@ export async function GET(
   }
 
   try {
-    const analysis = await analyzeCompteOffres(params.id, {
-      forceRefresh: false,
-    });
+    const analysis = await getCachedAnalysis(params.id);
+    if (!analysis) {
+      return NextResponse.json(
+        { error: "Aucune analyse générée pour ce compte." },
+        { status: 404 }
+      );
+    }
     return NextResponse.json({ analysis });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Erreur analyse offre.";
-    if (message.includes("non parsable") || message.includes("invalide")) {
-      return NextResponse.json({ error: message }, { status: 500 });
-    }
-    return NextResponse.json({ error: "Aucune analyse générée pour ce compte." }, { status: 404 });
+    const message = err instanceof Error ? err.message : "Erreur interne.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
