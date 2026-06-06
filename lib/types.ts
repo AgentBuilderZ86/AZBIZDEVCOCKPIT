@@ -349,3 +349,27 @@ export interface Ao {
   importedAt: string;
   updatedAt: string;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Revue Actions — suivi des recommandations IA                               */
+/* -------------------------------------------------------------------------- */
+
+export type RevueActionStatus = "pending" | "done" | "skipped";
+export type RevueDoneType = "email" | "appel" | "reunion" | "autre";
+
+export interface RevueAction {
+  id: string;
+  compteId: string;
+  compteNom: string;
+  actionText: string;
+  targetContacts: string;
+  linkedOffer: string | null;
+  horizon: string;
+  generatedAt: string;
+  status: RevueActionStatus;
+  doneAt: string | null;
+  doneType: string | null;
+  doneContact: string | null;
+  doneNotes: string | null;
+  updatedAt: string;
+}
