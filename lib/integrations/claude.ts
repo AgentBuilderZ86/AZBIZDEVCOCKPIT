@@ -25,11 +25,11 @@ const IntelligenceSchema = z.object({
     .describe("Score d'attractivité du compte de 0 à 100 (AdilStar)."),
   scoreRationale: z
     .string()
-    .describe("Justification concise du score (2-3 phrases)."),
+    .describe("Justification concise du score (1-2 phrases)."),
   planStrategique: z
     .string()
     .describe(
-      "Plan stratégique compte en français : enjeux, parties prenantes, offres Sia pertinentes, séquence d'approche, prochaines étapes. 250-500 mots."
+      "Plan stratégique compte en français : enjeux clés, offres Sia pertinentes, prochaines étapes. 80-120 mots, actionnable."
     ),
   suggestedSignaux: z
     .array(
@@ -40,7 +40,7 @@ const IntelligenceSchema = z.object({
         notes: z.string(),
       })
     )
-    .describe("0 à 4 signaux/angles d'approche déduits du contexte."),
+    .describe("0 à 2 signaux/angles d'approche prioritaires déduits du contexte."),
 });
 
 export type AccountIntelligence = z.infer<typeof IntelligenceSchema>;
@@ -98,7 +98,7 @@ export async function generateAccountIntelligence(
 
   const response = await getClient().messages.parse({
     model: "claude-sonnet-4-6",
-    max_tokens: 2048,
+    max_tokens: 1200,
     system: [
       {
         type: "text",

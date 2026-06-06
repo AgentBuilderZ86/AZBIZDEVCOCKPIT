@@ -73,8 +73,9 @@ export interface EnrichmentData {
 }
 
 /**
- * Phase 1 : collecte les données externes (Apollo, Hunter, Explorium).
- * Durée estimée : 10-18s. Ne fait aucun appel Claude.
+ * Phase 1 : collecte les données externes en un seul groupe parallèle.
+ * Hunter et Apollo decisions fonctionnent par nom de société (domain optionnel).
+ * Durée estimée : 4-6s.
  */
 export async function buildEnrichmentData(
   compteId: string
@@ -85,10 +86,12 @@ export async function buildEnrichmentData(
   const sources: string[] = [];
   const people: (ApolloPerson & { telephone?: string | null })[] = [];
 
-  // 1a. Firmographie Apollo + Explorium en parallèle.
-  const [firmoRes, exploriumRes] = await Promise.all([
+  // Toutes les sources en parallèle — pas de dépendance domaine.
+  const [firmoRes, exploriumRes, hunterRes, peopleRes] = await Promise.all([
     enrichOrganization(compte.compte),
     matchExploriumBusiness(compte.compte),
+    searchHunterContacts(compte.compte, null),
+    searchDecisionMakers(compte.compte, null),
   ]);
 
   let firmo = firmoRes.data;
@@ -115,14 +118,6 @@ export async function buildEnrichmentData(
       : { domain: explorium.domain, effectif: null, caEstime: null, industrie: null };
   }
 
-  // 1b. Hunter + décideurs Apollo en parallèle.
-  const [hunterRes, peopleRes] = await Promise.all([
-    searchHunterContacts(compte.compte, firmo?.domain ?? null),
-    firmo
-      ? searchDecisionMakers(compte.compte, firmo.domain)
-      : Promise.resolve({ data: null as ApolloPerson[] | null, error: null }),
-  ]);
-
   if (peopleRes.error && !isKnownProviderLimit(peopleRes.error))
     warnings.push(`Décideurs Apollo : ${peopleRes.error}`);
   else if (peopleRes.data?.length) people.push(...peopleRes.data);
@@ -135,8 +130,7 @@ export async function buildEnrichmentData(
     people.push(...hunterRes.data);
   }
 
-  // 1c. Téléphones.
-  let phoneMap: Record<string, string> = {};
+  const phoneMap: Record<string, string> = {};
   return { compteId, compte, contacts, signaux, firmo, people, phoneMap, warnings, sources };
 }
 

@@ -70,11 +70,10 @@ export function EnrichDialog({ compteId }: Props) {
     try {
       // Lance un timer d'avancement visuel pendant l'attente (~20s)
       const steps = [
-        { at: 4000,  pct: 15, label: "Analyse des données firmographiques…" },
-        { at: 8000,  pct: 30, label: "Recherche des décideurs & emails…" },
-        { at: 13000, pct: 50, label: "Analyse Claude Sonnet en cours…" },
-        { at: 18000, pct: 70, label: "Calcul du score AdilStar…" },
-        { at: 22000, pct: 85, label: "Rédaction du plan stratégique…" },
+        { at: 2000, pct: 20, label: "Collecte Apollo · Hunter · Explorium…" },
+        { at: 5000, pct: 45, label: "Analyse des données firmographiques…" },
+        { at: 8000, pct: 65, label: "Analyse Claude Sonnet en cours…" },
+        { at: 12000, pct: 85, label: "Calcul du score & plan stratégique…" },
       ];
       const timers = steps.map(({ at, pct, label }) =>
         setTimeout(() => {
@@ -194,7 +193,7 @@ export function EnrichDialog({ compteId }: Props) {
                   {loadingStatus || "Enrichissement en cours…"}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Apollo · Hunter · Claude Sonnet — 20–30 secondes
+                  Apollo · Hunter · Claude Sonnet — 12–20 secondes
                 </p>
               </div>
               <div className="space-y-1">
