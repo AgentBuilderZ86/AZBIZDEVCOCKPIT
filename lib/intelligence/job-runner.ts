@@ -104,7 +104,7 @@ async function runEnrichData(job: IntelligenceJob): Promise<void> {
   if (intelJobId) triggerJobWorker(1);
 }
 
-/** Phase 2 : Claude Opus → proposition finale (~15-25s). */
+/** Phase 2 : Claude Sonnet → proposition finale (~8-15s). */
 async function runEnrichIntel(job: IntelligenceJob): Promise<void> {
   const data = job.payload.data as EnrichmentData | undefined;
   if (!data?.compteId) throw new Error("Payload enrich.intel : data.compteId requis.");

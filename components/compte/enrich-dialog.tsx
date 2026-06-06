@@ -63,17 +63,19 @@ export function EnrichDialog({ compteId }: Props) {
 
   async function pollJob(jobId: string): Promise<Record<string, unknown>> {
     const res = await fetch(`/api/intelligence/jobs/${jobId}`);
-    const job = await parseApiJson(res);
-    if (!res.ok) throw new Error(String(job.error ?? "Job introuvable."));
+    const data = await parseApiJson(res);
+    if (!res.ok) throw new Error(String(data.error ?? "Job introuvable."));
+    const job = data.job as Record<string, unknown> | undefined;
+    if (!job) throw new Error("Job introuvable.");
     if (job.status === "failed") throw new Error(String(job.error ?? "Échec de l'enrichissement."));
-    return job as Record<string, unknown>;
+    return job;
   }
 
   async function pollEnrichJob(dataJobId: string): Promise<EnrichmentProposal> {
     // Phase A : poll enrich.data (~30-45s) — 30 tentatives × 3s = 90s
     const phaseASteps = [
       "Interrogation des sources Apollo…",
-      "Recherche web (LinkedIn / Charika)…",
+      "Analyse Explorium & décideurs…",
       "Recherche Hunter & contacts…",
       "Révélation des téléphones…",
     ];
@@ -95,7 +97,7 @@ export function EnrichDialog({ compteId }: Props) {
 
   async function pollEnrichIntel(intelJobId: string): Promise<EnrichmentProposal> {
     const phaseBSteps = [
-      "Analyse Claude Opus en cours…",
+      "Analyse Claude Sonnet en cours…",
       "Calcul du score AdilStar…",
       "Rédaction du plan stratégique…",
       "Assemblage de la proposition…",
