@@ -78,11 +78,20 @@ const STAGE_CONFIG: Record<string, string> = {
 /* Main component                                                       */
 /* ------------------------------------------------------------------ */
 
+type PanelKey = "won" | "pipeline" | "active" | "core" | null;
+
 export function PartnerReviewClient({ comptes, opportunites }: Props) {
   const [view, setView] = React.useState<ViewMode>("moi");
   const [status, setStatus] = React.useState<"Brouillon" | "Finalisé">("Brouillon");
   const [notes, setNotes] = React.useState("");
-  const [showWon, setShowWon] = React.useState(false);
+  const [openPanel, setOpenPanel] = React.useState<PanelKey>(null);
+
+  function togglePanel(key: PanelKey) {
+    setOpenPanel(v => v === key ? null : key);
+  }
+
+  // Keep legacy alias used below
+  const showWon = openPanel === "won";
 
   const today = new Date().toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 
@@ -188,14 +197,18 @@ export function PartnerReviewClient({ comptes, opportunites }: Props) {
       {view !== "mixte" ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <KpiCard label="Pipeline pondéré" value={`${kpis.pipeline.toFixed(0)}k€`} icon={TrendingUp} color="blue"
-            sub={view === "moi" ? "Mes deals seuls" : "Tous deals confondus"} />
+            sub={`${activeOpps.filter(o => o.stage !== "Won" && o.stage !== "Lost").length} deals · cliquer pour voir`}
+            onClick={() => togglePanel("pipeline")} active={openPanel === "pipeline"} />
           <KpiCard label="Revenue Won" value={`${kpis.won.toFixed(0)}k€`} icon={CheckCircle2} color="emerald"
             sub={`${activeOpps.filter(o => o.stage === "Won").length} deals · cliquer pour voir`}
-            onClick={() => setShowWon(v => !v)} active={showWon} />
+            onClick={() => togglePanel("won")} active={openPanel === "won"} />
           <KpiCard label="Deals actifs" value={String(activeOpps.filter(o => o.stage !== "Won" && o.stage !== "Lost").length)}
-            icon={Users} color="violet" sub={`${activeOpps.filter(o => o.stage === "Won").length} Won · ${activeOpps.filter(o => o.stage === "Lost").length} Lost`} />
+            icon={Users} color="violet"
+            sub={`${activeOpps.filter(o => o.stage === "Won").length} Won · ${activeOpps.filter(o => o.stage === "Lost").length} Lost · cliquer`}
+            onClick={() => togglePanel("active")} active={openPanel === "active"} />
           <KpiCard label="Comptes Core" value={String(coreComptes.length)} icon={Target} color="orange"
-            sub="CIO / Data / IA" />
+            sub="CIO / Data / IA · cliquer pour voir"
+            onClick={() => togglePanel("core")} active={openPanel === "core"} />
         </div>
       ) : (
         /* ---- Vue mixte : side-by-side ---- */
@@ -217,44 +230,15 @@ export function PartnerReviewClient({ comptes, opportunites }: Props) {
         </div>
       )}
 
-      {/* ---- Deals Won (panneau dépliable) ---- */}
-      {showWon && view !== "mixte" && (
-        <section className="rounded-xl border border-emerald-200/60 bg-emerald-50/40 backdrop-blur-sm overflow-hidden" style={{ boxShadow: "0 1px 3px hsl(220 20% 0% / 0.05)" }}>
-          <div className="flex items-center justify-between px-5 py-3 border-b border-emerald-200/60">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-              <h2 className="text-sm font-bold tracking-tight text-emerald-900">Deals Won</h2>
-              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-                {activeOpps.filter(o => o.stage === "Won").length} deals · {kpis.won.toFixed(0)}k€
-              </span>
-            </div>
-            <button onClick={() => setShowWon(false)} className="text-xs text-emerald-600 hover:text-emerald-800 transition-colors">Fermer ×</button>
-          </div>
-          <div className="divide-y divide-emerald-200/40">
-            {activeOpps
-              .filter(o => o.stage === "Won")
-              .sort((a, b) => (b.montant ?? 0) - (a.montant ?? 0))
-              .map(o => (
-                <div key={o.id} className="flex items-center gap-3 px-5 py-3 hover:bg-emerald-50/60 transition-colors duration-150">
-                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{o.opportunite}</p>
-                    {o.dateClose && (
-                      <p className="text-[10px] text-muted-foreground">
-                        Clôturé {new Date(o.dateClose).toLocaleDateString("fr-FR", { month: "short", year: "numeric" })}
-                      </p>
-                    )}
-                  </div>
-                  <span className="shrink-0 text-sm font-bold text-emerald-700 tabular-nums">
-                    {o.montant}k€
-                  </span>
-                </div>
-              ))}
-            {activeOpps.filter(o => o.stage === "Won").length === 0 && (
-              <p className="px-5 py-4 text-sm text-muted-foreground">Aucun deal Won dans cette vue.</p>
-            )}
-          </div>
-        </section>
+      {/* ---- Panneaux dépliables KPI ---- */}
+      {openPanel !== null && view !== "mixte" && (
+        <ExpandedPanel
+          panelKey={openPanel}
+          activeOpps={activeOpps}
+          coreComptes={coreComptes}
+          kpis={kpis}
+          onClose={() => setOpenPanel(null)}
+        />
       )}
 
       {/* ---- Pipeline par stage ---- */}
@@ -385,6 +369,219 @@ export function PartnerReviewClient({ comptes, opportunites }: Props) {
 /* ------------------------------------------------------------------ */
 /* Sub-components                                                       */
 /* ------------------------------------------------------------------ */
+
+/* ------------------------------------------------------------------ */
+/* ExpandedPanel                                                         */
+/* ------------------------------------------------------------------ */
+
+function ExpandedPanel({
+  panelKey, activeOpps, coreComptes, kpis, onClose,
+}: {
+  panelKey: PanelKey;
+  activeOpps: Opportunite[];
+  coreComptes: Compte[];
+  kpis: ReturnType<typeof computeKpis>;
+  onClose: () => void;
+}) {
+  if (panelKey === "won") {
+    const wonDeals = activeOpps.filter(o => o.stage === "Won").sort((a, b) => (b.montant ?? 0) - (a.montant ?? 0));
+    return (
+      <PanelShell
+        icon={<CheckCircle2 className="h-4 w-4 text-emerald-600" />}
+        title="Deals Won"
+        badge={`${wonDeals.length} deals · ${kpis.won.toFixed(0)}k€`}
+        badgeCls="bg-emerald-100 text-emerald-700"
+        borderCls="border-emerald-200/60 bg-emerald-50/40"
+        onClose={onClose}
+      >
+        {wonDeals.length === 0
+          ? <EmptyRow msg="Aucun deal Won dans cette vue." />
+          : wonDeals.map(o => (
+            <DealRow key={o.id}
+              icon={<CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />}
+              name={o.opportunite}
+              sub={o.dateClose ? `Clôturé ${new Date(o.dateClose).toLocaleDateString("fr-FR", { month: "short", year: "numeric" })}` : undefined}
+              right={<span className="text-sm font-bold text-emerald-700 tabular-nums">{o.montant}k€</span>}
+              hoverCls="hover:bg-emerald-50/70"
+            />
+          ))
+        }
+      </PanelShell>
+    );
+  }
+
+  if (panelKey === "pipeline") {
+    const pipelineDeals = activeOpps
+      .filter(o => o.stage !== "Won" && o.stage !== "Lost")
+      .sort((a, b) => (b.montant ?? 0) - (a.montant ?? 0));
+    const pondTotal = pipelineDeals.reduce((s, o) => s + (o.montant ?? 0) * ((o.probabilite ?? 0) / 100), 0);
+    return (
+      <PanelShell
+        icon={<TrendingUp className="h-4 w-4 text-blue-600" />}
+        title="Pipeline actif"
+        badge={`${pipelineDeals.length} deals · ${pondTotal.toFixed(0)}k€ pondéré`}
+        badgeCls="bg-blue-100 text-blue-700"
+        borderCls="border-blue-200/60 bg-blue-50/40"
+        onClose={onClose}
+      >
+        {pipelineDeals.length === 0
+          ? <EmptyRow msg="Aucun deal en cours dans cette vue." />
+          : pipelineDeals.map(o => (
+            <DealRow key={o.id}
+              icon={
+                <span className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold", STAGE_CONFIG[o.stage ?? ""] ?? "bg-muted text-muted-foreground")}>
+                  {o.stage}
+                </span>
+              }
+              name={o.opportunite}
+              sub={o.nextStep ? o.nextStep : undefined}
+              right={
+                <div className="text-right shrink-0">
+                  <p className="text-sm font-bold text-blue-700 tabular-nums">{o.montant}k€</p>
+                  {o.probabilite != null && <p className="text-[10px] text-muted-foreground">{o.probabilite}%</p>}
+                </div>
+              }
+              hoverCls="hover:bg-blue-50/60"
+            />
+          ))
+        }
+      </PanelShell>
+    );
+  }
+
+  if (panelKey === "active") {
+    const STAGES_ORDER: OppStage[] = ["Negotiation", "Proposal", "Qualified", "Discovery"];
+    return (
+      <PanelShell
+        icon={<Users className="h-4 w-4 text-violet-600" />}
+        title="Deals actifs par stage"
+        badge={`${activeOpps.filter(o => o.stage !== "Won" && o.stage !== "Lost").length} deals`}
+        badgeCls="bg-violet-100 text-violet-700"
+        borderCls="border-violet-200/60 bg-violet-50/40"
+        onClose={onClose}
+      >
+        {STAGES_ORDER.map(stage => {
+          const deals = activeOpps.filter(o => o.stage === stage).sort((a, b) => (b.montant ?? 0) - (a.montant ?? 0));
+          if (deals.length === 0) return null;
+          const stageTotal = deals.reduce((s, o) => s + (o.montant ?? 0), 0);
+          return (
+            <React.Fragment key={stage}>
+              <div className="flex items-center gap-2 px-5 py-2 bg-violet-50/60 border-b border-violet-200/40">
+                <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", STAGE_CONFIG[stage])}>{stage}</span>
+                <span className="text-xs text-muted-foreground">{deals.length} deal{deals.length > 1 ? "s" : ""} — {stageTotal}k€</span>
+              </div>
+              {deals.map(o => (
+                <DealRow key={o.id}
+                  icon={null}
+                  name={o.opportunite}
+                  sub={o.dateNextStep ? `Next step : ${new Date(o.dateNextStep).toLocaleDateString("fr-FR")}` : undefined}
+                  right={<span className="text-sm font-bold text-violet-700 tabular-nums">{o.montant}k€</span>}
+                  hoverCls="hover:bg-violet-50/60"
+                />
+              ))}
+            </React.Fragment>
+          );
+        })}
+        {activeOpps.filter(o => o.stage !== "Won" && o.stage !== "Lost").length === 0 && (
+          <EmptyRow msg="Aucun deal actif dans cette vue." />
+        )}
+      </PanelShell>
+    );
+  }
+
+  if (panelKey === "core") {
+    return (
+      <PanelShell
+        icon={<Target className="h-4 w-4 text-orange-600" />}
+        title="Comptes Core Advisory"
+        badge={`${coreComptes.length} comptes`}
+        badgeCls="bg-orange-100 text-orange-700"
+        borderCls="border-orange-200/60 bg-orange-50/40"
+        onClose={onClose}
+      >
+        {coreComptes.length === 0
+          ? <EmptyRow msg="Aucun compte Core Advisory — catégorisez dans le Plan de comptes." />
+          : coreComptes.map(c => (
+            <DealRow key={c.id}
+              icon={null}
+              name={c.compte}
+              sub={c.secteur ?? undefined}
+              right={
+                <div className="flex items-center gap-2 shrink-0">
+                  {c.stage && (
+                    <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", STAGE_CONFIG[c.stage] ?? "bg-muted text-muted-foreground")}>
+                      {c.stage}
+                    </span>
+                  )}
+                  {c.arrPondere != null && c.arrPondere > 0 && (
+                    <span className="text-sm font-bold text-orange-700 tabular-nums">{c.arrPondere}k€</span>
+                  )}
+                </div>
+              }
+              hoverCls="hover:bg-orange-50/60"
+            />
+          ))
+        }
+      </PanelShell>
+    );
+  }
+
+  return null;
+}
+
+function PanelShell({
+  icon, title, badge, badgeCls, borderCls, onClose, children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  badge: string;
+  badgeCls: string;
+  borderCls: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      className={cn("rounded-xl border backdrop-blur-sm overflow-hidden", borderCls)}
+      style={{ boxShadow: "0 1px 3px hsl(220 20% 0% / 0.05)" }}
+    >
+      <div className={cn("flex items-center justify-between px-5 py-3 border-b", borderCls)}>
+        <div className="flex items-center gap-2">
+          {icon}
+          <h2 className="text-sm font-bold tracking-tight">{title}</h2>
+          <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", badgeCls)}>{badge}</span>
+        </div>
+        <button onClick={onClose} className="text-xs text-muted-foreground hover:text-foreground transition-colors">Fermer ×</button>
+      </div>
+      <div className="divide-y divide-black/[0.04]">{children}</div>
+    </section>
+  );
+}
+
+function DealRow({
+  icon, name, sub, right, hoverCls,
+}: {
+  icon: React.ReactNode;
+  name: string;
+  sub?: string;
+  right: React.ReactNode;
+  hoverCls: string;
+}) {
+  return (
+    <div className={cn("flex items-center gap-3 px-5 py-3 transition-colors duration-150", hoverCls)}>
+      {icon}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate">{name}</p>
+        {sub && <p className="text-[10px] text-muted-foreground truncate">{sub}</p>}
+      </div>
+      {right}
+    </div>
+  );
+}
+
+function EmptyRow({ msg }: { msg: string }) {
+  return <p className="px-5 py-4 text-sm text-muted-foreground">{msg}</p>;
+}
 
 function KpiCard({
   label, value, sub, icon: Icon, color, onClick, active,
