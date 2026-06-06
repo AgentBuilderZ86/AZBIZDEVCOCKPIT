@@ -255,12 +255,12 @@ export function ConnaissanceClient({ intelligenceEnabled, initialDocs }: Props) 
 
   if (!intelligenceEnabled) {
     return (
-      <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-        <p className="font-medium">Couche Intelligence inactive</p>
-        <p className="mt-1">
-          Configurez <code className="text-xs">DATABASE_URL</code> et{" "}
-          <code className="text-xs">EMBEDDINGS_API_KEY</code>, puis exécutez{" "}
-          <code className="text-xs">npm run db:migrate</code>.
+      <div className="rounded-xl border border-amber-300/60 bg-amber-50/80 backdrop-blur-sm p-5 text-sm text-amber-900">
+        <p className="font-semibold">Couche Intelligence inactive</p>
+        <p className="mt-1.5">
+          Configurez <code className="rounded bg-amber-100 px-1 py-0.5 text-xs">DATABASE_URL</code> et{" "}
+          <code className="rounded bg-amber-100 px-1 py-0.5 text-xs">EMBEDDINGS_API_KEY</code>, puis exécutez{" "}
+          <code className="rounded bg-amber-100 px-1 py-0.5 text-xs">npm run db:migrate</code>.
         </p>
       </div>
     );
@@ -268,10 +268,10 @@ export function ConnaissanceClient({ intelligenceEnabled, initialDocs }: Props) 
 
   return (
     <>
-      <div className="grid gap-8 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-2">
         <section className="space-y-4">
-          <h2 className="text-lg font-semibold">Indexer un document</h2>
-          <form onSubmit={onUpload} className="space-y-3 rounded-md border p-4">
+          <h2 className="text-base font-bold tracking-tight">Indexer un document</h2>
+          <form onSubmit={onUpload} className="space-y-3 rounded-xl border bg-white/80 backdrop-blur-sm p-5">
             <div>
               <Label htmlFor="file">Fichier (.txt, .md, .pdf)</Label>
               <Input id="file" name="file" type="file" accept=".txt,.md,.markdown,.pdf" className="mt-1" />
@@ -344,7 +344,7 @@ export function ConnaissanceClient({ intelligenceEnabled, initialDocs }: Props) 
 
             {/* Erreur délai dépassé */}
             {uploadError === "timeout" && (
-              <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+              <div className="rounded-xl border border-amber-300/60 bg-amber-50/80 p-3 text-xs text-amber-900">
                 <p className="font-semibold">Délai dépassé</p>
                 <p className="mt-1">L&apos;indexation a pris trop de temps. Essayez :</p>
                 <ul className="mt-1 list-inside list-disc space-y-0.5">
@@ -363,8 +363,8 @@ export function ConnaissanceClient({ intelligenceEnabled, initialDocs }: Props) 
             )}
           </form>
 
-          <h2 className="text-lg font-semibold">Indexer une page Notion</h2>
-          <form onSubmit={onIngestNotion} className="space-y-3 rounded-md border p-4">
+          <h2 className="text-base font-bold tracking-tight">Indexer une page Notion</h2>
+          <form onSubmit={onIngestNotion} className="space-y-3 rounded-xl border bg-white/80 backdrop-blur-sm p-5">
             <div>
               <Label htmlFor="notionUrl">URL ou ID de page Notion</Label>
               <Input
@@ -392,15 +392,15 @@ export function ConnaissanceClient({ intelligenceEnabled, initialDocs }: Props) 
             </Button>
           </form>
 
-          <h3 className="text-sm font-semibold text-muted-foreground">
+          <h3 className="label-muted">
             Documents indexés · {docs.length}
           </h3>
-          <ul className="divide-y rounded-md border text-sm">
+          <ul className="divide-y rounded-xl border bg-white/80 backdrop-blur-sm text-sm overflow-hidden">
             {docs.length === 0 && (
-              <li className="p-3 text-muted-foreground">Aucun document.</li>
+              <li className="p-4 text-muted-foreground">Aucun document.</li>
             )}
             {docs.map((d) => (
-              <li key={d.id} className="flex items-start justify-between gap-2 p-3">
+              <li key={d.id} className="flex items-start justify-between gap-2 px-4 py-3 transition-colors duration-150 hover:bg-primary/[0.02]">
                 <div>
                   <p className="font-medium">{d.title}</p>
                   <p className="text-xs text-muted-foreground">
@@ -424,7 +424,7 @@ export function ConnaissanceClient({ intelligenceEnabled, initialDocs }: Props) 
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-lg font-semibold">Recherche test (RAG)</h2>
+          <h2 className="text-base font-bold tracking-tight">Recherche test (RAG)</h2>
           <form onSubmit={onSearch} className="flex flex-col gap-2">
             <Input
               value={query}
@@ -447,14 +447,14 @@ export function ConnaissanceClient({ intelligenceEnabled, initialDocs }: Props) 
 
           <div className="space-y-2">
             {hits.map((h, i) => (
-              <div key={i} className="rounded-md border p-3 text-sm">
+              <div key={i} className="rounded-xl border bg-white/80 backdrop-blur-sm p-4 text-sm transition-all duration-200 hover:shadow-sm">
                 <div className="flex justify-between gap-2">
-                  <span className="font-medium">{h.doc.title}</span>
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {(h.similarity * 100).toFixed(0)} %
+                  <span className="font-semibold">{h.doc.title}</span>
+                  <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                    {(h.similarity * 100).toFixed(0)}%
                   </span>
                 </div>
-                <p className="mt-1 line-clamp-4 whitespace-pre-wrap text-xs text-muted-foreground">
+                <p className="mt-1.5 line-clamp-4 whitespace-pre-wrap text-xs text-muted-foreground leading-relaxed">
                   {h.chunkText}
                 </p>
               </div>

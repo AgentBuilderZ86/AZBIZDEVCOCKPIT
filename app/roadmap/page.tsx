@@ -112,7 +112,7 @@ export default function RoadmapPage() {
         {WAVES.map((wave) => {
           const StateIcon = wave.stateIcon;
           return (
-            <div key={wave.id} className={`rounded-2xl border ${wave.color.border} ${wave.color.bg} overflow-hidden flex flex-col`}>
+            <div key={wave.id} className={`rounded-2xl border ${wave.color.border} ${wave.color.bg} overflow-hidden flex flex-col transition-all duration-200 hover:shadow-xl hover:scale-[1.01]`}>
               {/* Card header */}
               <div className={`bg-gradient-to-r ${wave.color.header} p-5`}>
                 <div className="flex items-start justify-between gap-2">
@@ -133,7 +133,7 @@ export default function RoadmapPage() {
                 {wave.items.map((item) => {
                   const Icon = item.icon;
                   return (
-                    <li key={item.text} className="flex items-start gap-3 px-3 py-2.5">
+                    <li key={item.text} className="flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors duration-150 hover:bg-white/40 mx-1 my-0.5">
                       <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded ${wave.color.badge}`}>
                         <Icon className={`h-3 w-3 ${wave.color.icon}`} />
                       </span>

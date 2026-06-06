@@ -181,7 +181,7 @@ export default function MethoPage() {
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {SCORE_COMPONENTS.map((comp) => (
-            <div key={comp.name} className={`rounded-xl border ${comp.light} p-3`}>
+            <div key={comp.name} className={`rounded-xl border ${comp.light} p-3 transition-all duration-200 hover:shadow-md hover:scale-[1.01]`}>
               <div className="mb-2 flex items-center justify-between gap-2">
                 <p className="text-xs font-semibold">{comp.name}</p>
                 <span className="text-xs font-bold">max +{comp.max} pts</span>
@@ -321,7 +321,7 @@ export default function MethoPage() {
           {SOURCES.map((src, i) => {
             const Icon = src.icon;
             return (
-              <div key={src.name} className={`relative rounded-xl border ${src.badge.split(" ")[0].replace("bg-", "border-").replace("50", "200")} bg-white/80 p-4 shadow-sm`}>
+              <div key={src.name} className={`relative rounded-xl border ${src.badge.split(" ")[0].replace("bg-", "border-").replace("50", "200")} bg-white/80 p-4 shadow-sm transition-all duration-200 hover:shadow-md hover:scale-[1.01]`}>
                 {i < SOURCES.length - 1 && (
                   <div className="absolute -right-1.5 top-1/2 z-10 hidden -translate-y-1/2 lg:block">
                     <ArrowRight className="h-4 w-4 text-muted-foreground" />
@@ -366,7 +366,7 @@ export default function MethoPage() {
 
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {INFLUENCE.map((inf) => (
-            <div key={inf.level} className="flex items-start gap-3 rounded-xl border bg-white/80 p-3 shadow-sm">
+            <div key={inf.level} className="flex items-start gap-3 rounded-xl border bg-white/80 p-3 shadow-sm transition-all duration-200 hover:shadow-md hover:scale-[1.01]">
               <div className="flex flex-col items-center gap-1">
                 <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-bold ${inf.badge}`}>{inf.level.split(" ")[0]}</span>
                 <span className="text-xs font-bold text-muted-foreground">{inf.p}</span>
@@ -392,7 +392,7 @@ export default function MethoPage() {
           {NBA_RULES.map((rule, i) => {
             const Icon = rule.icon;
             return (
-              <div key={rule.trigger} className={`flex items-start gap-4 rounded-xl border p-3.5 ${rule.color}`}>
+              <div key={rule.trigger} className={`flex items-start gap-4 rounded-xl border p-3.5 transition-all duration-150 hover:scale-[1.005] hover:shadow-sm ${rule.color}`}>
                 <div className="flex flex-col items-center gap-1 shrink-0">
                   <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/80 text-xs font-bold shadow-sm">{i + 1}</span>
                   <Icon className={`h-4 w-4 ${rule.color.split(" ")[0]}`} />
