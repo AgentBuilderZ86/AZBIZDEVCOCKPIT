@@ -59,7 +59,7 @@ Renvoie UNIQUEMENT du JSON :
   const messages: Anthropic.MessageParam[] = [{ role: "user", content: instruction }];
   let final: Anthropic.Message | null = null;
 
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 3; i++) {
     const response = await getClient().messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 2048,
@@ -91,7 +91,7 @@ Renvoie UNIQUEMENT du JSON :
 
   const items = parsed.items
     .filter((it) => it.title?.trim())
-    .slice(0, 6)
+    .slice(0, 3)
     .map((it) => ({
       title: String(it.title).trim(),
       url: it.url ? String(it.url) : null,

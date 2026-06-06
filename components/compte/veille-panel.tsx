@@ -64,7 +64,7 @@ export function VeillePanel({ compteId, enabled, onComplete }: Props) {
             size="sm"
             variant="outline"
             disabled={loading}
-            onClick={() => runVeille(false)}
+            onClick={() => runVeille(true)}
           >
             {loading ? "Recherche…" : "Lancer la veille"}
           </Button>
