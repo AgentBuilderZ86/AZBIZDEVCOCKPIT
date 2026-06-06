@@ -154,7 +154,64 @@ Règles strictes :
 - Indique "gap" si ni l'offre Sia ni les docs ne couvrent ce besoin identifié.
 - Les étapes d'action doivent être concrètes, nominatives si contacts disponibles.
 - Ne fabrique pas de chiffres, noms ou URLs absents du contexte fourni.
-- Réponds UNIQUEMENT en JSON valide, sans commentaire ni texte hors du bloc JSON.`;
+- Appelle toujours l'outil submit_offre_analysis pour structurer ta réponse.`;
+
+const OFFRE_TOOL: Anthropic.Tool = {
+  name: "submit_offre_analysis",
+  description:
+    "Soumet l'analyse structurée des offres Sia pertinentes et le plan d'action pour le compte cible.",
+  input_schema: {
+    type: "object",
+    properties: {
+      syntheseNarrative: {
+        type: "string",
+        description: "Synthèse executive en 3-5 phrases.",
+      },
+      mappingRows: {
+        type: "array",
+        description: "4 à 6 thématiques prioritaires mappées sur les offres Sia.",
+        items: {
+          type: "object",
+          properties: {
+            topic: { type: "string", description: "Thématique prioritaire identifiée." },
+            siaOffer: { type: "string", description: "Offre Sia à pousser." },
+            coverage: {
+              type: "string",
+              enum: ["rag_indexed", "expertise_sia", "gap"],
+            },
+            ragDocTitles: {
+              type: "array",
+              items: { type: "string" },
+              description: "Titres des docs RAG si coverage=rag_indexed.",
+            },
+            rationale: { type: "string", description: "1 phrase de justification." },
+          },
+          required: ["topic", "siaOffer", "coverage", "rationale"],
+        },
+      },
+      actionSteps: {
+        type: "array",
+        description: "3 à 5 étapes d'action concrètes et séquencées.",
+        items: {
+          type: "object",
+          properties: {
+            order: { type: "number" },
+            horizon: { type: "string", enum: ["J+7", "J+30", "J+90", "J+180"] },
+            action: { type: "string", description: "Action concrète et actionnable." },
+            targetContacts: {
+              type: "array",
+              items: { type: "string" },
+              description: "Noms des contacts ciblés.",
+            },
+            linkedOffer: { type: ["string", "null"] },
+          },
+          required: ["order", "horizon", "action"],
+        },
+      },
+    },
+    required: ["syntheseNarrative", "mappingRows", "actionSteps"],
+  },
+};
 
 export async function analyzeCompteOffres(
   compteId: string,
@@ -249,35 +306,12 @@ ${ragContext}
 --- Contexte Notion ---
 ${JSON.stringify(notionContext, null, 2)}
 
-Génère une analyse structurée en JSON respectant EXACTEMENT ce schéma (4 à 8 mappingRows, 4 à 6 actionSteps) :
-
-\`\`\`json
-{
-  "syntheseNarrative": "string (3-5 phrases de synthèse executive)",
-  "mappingRows": [
-    {
-      "topic": "string (thématique prioritaire identifiée)",
-      "siaOffer": "string (offre Sia à pousser)",
-      "coverage": "rag_indexed | expertise_sia | gap",
-      "ragDocTitles": ["string (titres docs RAG si coverage=rag_indexed)"],
-      "rationale": "string (1 phrase de justification)"
-    }
-  ],
-  "actionSteps": [
-    {
-      "order": 1,
-      "horizon": "J+7 | J+30 | J+90 | J+180",
-      "action": "string (action concrète et actionnable)",
-      "targetContacts": ["string (nom contact ciblé)"],
-      "linkedOffer": "string | null"
-    }
-  ]
-}
-\`\`\``;
+Analyse ce compte et appelle l'outil submit_offre_analysis avec 4 à 6 mappingRows
+et 3 à 5 actionSteps. Sois concis et actionnable.`;
 
   const response = await getClient().messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 1024,
+    max_tokens: 3000,
     system: [
       {
         type: "text",
@@ -285,15 +319,29 @@ Génère une analyse structurée en JSON respectant EXACTEMENT ce schéma (4 à 
         cache_control: { type: "ephemeral" },
       },
     ],
+    tools: [OFFRE_TOOL],
+    tool_choice: { type: "tool", name: "submit_offre_analysis" },
     messages: [{ role: "user", content: userMsg }],
   });
 
-  const text = response.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("\n");
+  // Sortie structurée garantie via tool_use — plus de JSON markdown à parser.
+  const toolUse = response.content.find(
+    (b): b is Anthropic.ToolUseBlock => b.type === "tool_use"
+  );
 
-  const parsed = extractJson(text) as Record<string, unknown> | null;
+  let parsed: Record<string, unknown> | null = toolUse
+    ? (toolUse.input as Record<string, unknown>)
+    : null;
+
+  // Filet de sécurité : si pas de tool_use (cas rare), tente l'ancien parsing texte.
+  if (!parsed) {
+    const text = response.content
+      .filter((b): b is Anthropic.TextBlock => b.type === "text")
+      .map((b) => b.text)
+      .join("\n");
+    parsed = extractJson(text) as Record<string, unknown> | null;
+  }
+
   if (!parsed) {
     throw new Error("Réponse Claude invalide — JSON non parsable.");
   }
