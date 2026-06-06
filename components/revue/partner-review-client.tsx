@@ -69,6 +69,7 @@ export function PartnerReviewClient({ comptes, opportunites }: Props) {
   const [view, setView] = React.useState<ViewMode>("moi");
   const [status, setStatus] = React.useState<"Brouillon" | "Finalisé">("Brouillon");
   const [notes, setNotes] = React.useState("");
+  const [showWon, setShowWon] = React.useState(false);
 
   const today = new Date().toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 
@@ -176,7 +177,8 @@ export function PartnerReviewClient({ comptes, opportunites }: Props) {
           <KpiCard label="Pipeline pondéré" value={`${kpis.pipeline.toFixed(0)}k€`} icon={TrendingUp} color="blue"
             sub={view === "moi" ? "Mes deals seuls" : "Tous deals confondus"} />
           <KpiCard label="Revenue Won" value={`${kpis.won.toFixed(0)}k€`} icon={CheckCircle2} color="emerald"
-            sub={view === "moi" ? "Won Adil" : "Won cabinet"} />
+            sub={`${activeOpps.filter(o => o.stage === "Won").length} deals · cliquer pour voir`}
+            onClick={() => setShowWon(v => !v)} active={showWon} />
           <KpiCard label="Deals actifs" value={String(activeOpps.filter(o => o.stage !== "Won" && o.stage !== "Lost").length)}
             icon={Users} color="violet" sub={`${activeOpps.filter(o => o.stage === "Won").length} Won · ${activeOpps.filter(o => o.stage === "Lost").length} Lost`} />
           <KpiCard label="Comptes Core" value={String(coreComptes.length)} icon={Target} color="orange"
@@ -200,6 +202,46 @@ export function PartnerReviewClient({ comptes, opportunites }: Props) {
             deals={colleagueOpps}
           />
         </div>
+      )}
+
+      {/* ---- Deals Won (panneau dépliable) ---- */}
+      {showWon && view !== "mixte" && (
+        <section className="rounded-xl border border-emerald-200/60 bg-emerald-50/40 backdrop-blur-sm overflow-hidden" style={{ boxShadow: "0 1px 3px hsl(220 20% 0% / 0.05)" }}>
+          <div className="flex items-center justify-between px-5 py-3 border-b border-emerald-200/60">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              <h2 className="text-sm font-bold tracking-tight text-emerald-900">Deals Won</h2>
+              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                {activeOpps.filter(o => o.stage === "Won").length} deals · {kpis.won.toFixed(0)}k€
+              </span>
+            </div>
+            <button onClick={() => setShowWon(false)} className="text-xs text-emerald-600 hover:text-emerald-800 transition-colors">Fermer ×</button>
+          </div>
+          <div className="divide-y divide-emerald-200/40">
+            {activeOpps
+              .filter(o => o.stage === "Won")
+              .sort((a, b) => (b.montant ?? 0) - (a.montant ?? 0))
+              .map(o => (
+                <div key={o.id} className="flex items-center gap-3 px-5 py-3 hover:bg-emerald-50/60 transition-colors duration-150">
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{o.opportunite}</p>
+                    {o.dateClose && (
+                      <p className="text-[10px] text-muted-foreground">
+                        Clôturé {new Date(o.dateClose).toLocaleDateString("fr-FR", { month: "short", year: "numeric" })}
+                      </p>
+                    )}
+                  </div>
+                  <span className="shrink-0 text-sm font-bold text-emerald-700 tabular-nums">
+                    {o.montant}k€
+                  </span>
+                </div>
+              ))}
+            {activeOpps.filter(o => o.stage === "Won").length === 0 && (
+              <p className="px-5 py-4 text-sm text-muted-foreground">Aucun deal Won dans cette vue.</p>
+            )}
+          </div>
+        </section>
       )}
 
       {/* ---- Pipeline par stage ---- */}
@@ -332,13 +374,15 @@ export function PartnerReviewClient({ comptes, opportunites }: Props) {
 /* ------------------------------------------------------------------ */
 
 function KpiCard({
-  label, value, sub, icon: Icon, color,
+  label, value, sub, icon: Icon, color, onClick, active,
 }: {
   label: string;
   value: string;
   sub?: string;
   icon: React.ComponentType<{ className?: string }>;
   color: "blue" | "emerald" | "violet" | "orange";
+  onClick?: () => void;
+  active?: boolean;
 }) {
   const cm = {
     blue:    { bg: "bg-blue-50/60",    border: "border-blue-200/60",    icon: "text-blue-500",    val: "text-blue-900" },
@@ -346,15 +390,24 @@ function KpiCard({
     violet:  { bg: "bg-violet-50/60",  border: "border-violet-200/60",  icon: "text-violet-500",  val: "text-violet-900" },
     orange:  { bg: "bg-orange-50/60",  border: "border-orange-200/60",  icon: "text-orange-500",  val: "text-orange-900" },
   }[color];
+  const Tag = onClick ? "button" : "div";
   return (
-    <div className={cn("rounded-xl border p-4 transition-all duration-200 hover:shadow-md hover:scale-[1.01]", cm.bg, cm.border)}>
+    <Tag
+      className={cn(
+        "rounded-xl border p-4 transition-all duration-200 hover:shadow-md hover:scale-[1.01] text-left w-full",
+        cm.bg, cm.border,
+        active && "ring-2 ring-emerald-400/60 shadow-md scale-[1.01]",
+        onClick && "cursor-pointer"
+      )}
+      {...(onClick ? { onClick } : {})}
+    >
       <div className="flex items-center gap-2 mb-1.5">
         <Icon className={cn("h-4 w-4", cm.icon)} />
         <span className="text-xs font-medium text-muted-foreground">{label}</span>
       </div>
       <p className={cn("text-2xl font-bold tracking-tight", cm.val)}>{value}</p>
       {sub && <p className="mt-0.5 text-[10px] text-muted-foreground">{sub}</p>}
-    </div>
+    </Tag>
   );
 }
 
