@@ -1,30 +1,29 @@
-import { NextResponse } from "next/server";
-import { isIntelligenceEnabled } from "@/lib/intelligence/config";
+import { NextRequest, NextResponse } from "next/server";
 import { getJobById } from "@/lib/intelligence/jobs";
+import { isIntelligenceEnabled } from "@/lib/intelligence/config";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 10;
 
-/** GET — statut d'un job (polling après ingestion async). */
 export async function GET(
-  _req: Request,
+  _req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   if (!isIntelligenceEnabled()) {
-    return NextResponse.json({ error: "Intelligence inactive." }, { status: 503 });
+    return NextResponse.json(
+      { error: "Couche Intelligence inactive (DATABASE_URL)." },
+      { status: 503 }
+    );
   }
 
-  const job = await getJobById(params.id);
-  if (!job) {
-    return NextResponse.json({ error: "Job introuvable." }, { status: 404 });
+  try {
+    const job = await getJobById(params.id);
+    if (!job) {
+      return NextResponse.json({ error: "Job introuvable." }, { status: 404 });
+    }
+    return NextResponse.json({ job });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Erreur interne.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  return NextResponse.json({
-    id: job.id,
-    jobType: job.jobType,
-    status: job.status,
-    result: job.result,
-    error: job.error,
-    createdAt: job.createdAt.toISOString(),
-    completedAt: job.completedAt?.toISOString() ?? null,
-  });
 }
