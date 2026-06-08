@@ -338,6 +338,7 @@ function notionPageToContact(page: any): Contact {
     statutContact: readSelect(p["Statut contact"]) as StatutContact | null,
     derniereInteraction: readDate(p["Dernière interaction"]),
     notes: readRichText(p["Notes contextuelles"]),
+    managerId: readFirstRelationId(p["Manager (N+1)"]),
     url: page.url ?? "",
   };
 }
@@ -478,6 +479,11 @@ function writeRelation(pageId: string) {
   return { relation: [{ id: pageId }] };
 }
 
+function readFirstRelationId(prop: any): string | null {
+  const rel = prop?.relation;
+  return Array.isArray(rel) && rel[0]?.id ? rel[0].id : null;
+}
+
 /** Crée un Contact rattaché à un compte. */
 export async function createContact(
   compteId: string,
@@ -503,6 +509,7 @@ export async function createContact(
     props["Rôle décisionnel"] = writeRichText(draft.roleDecisionnel);
   if (draft.prioriteEngagement)
     props["Priorité engagement"] = writeSelect(draft.prioriteEngagement);
+  if (draft.managerId) props["Manager (N+1)"] = writeRelation(draft.managerId);
 
   const page: any = await withRetry(() =>
     notion.pages.create({
@@ -538,6 +545,10 @@ export async function updateContact(
     props["Priorité engagement"] = writeSelect(patch.prioriteEngagement);
   if (patch.statutContact !== undefined)
     props["Statut contact"] = writeSelect(patch.statutContact);
+  if (patch.managerId !== undefined)
+    props["Manager (N+1)"] = patch.managerId
+      ? writeRelation(patch.managerId)
+      : { relation: [] };
 
   const page: any = await withRetry(() =>
     notion.pages.update({ page_id: contactId, properties: props as any })
