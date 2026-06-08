@@ -373,3 +373,29 @@ export interface RevueAction {
   doneNotes: string | null;
   updatedAt: string;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Taches — TODO de la semaine & appels à réaliser (manuels)                  */
+/* -------------------------------------------------------------------------- */
+
+export type TacheType = "todo" | "appel";
+export type TacheScope = "compte" | "contact" | "opportunite";
+export type TachePriorite = "haute" | "moyenne" | "basse";
+export type TacheStatus = "pending" | "done";
+
+/** Forme SQL renvoyée par les routes /api/taches (snake_case, consommée directement). */
+export interface TacheRow {
+  id: string;
+  compte_id: string;
+  compte_nom: string;
+  scope: TacheScope;
+  cible_id: string | null;
+  cible_nom: string;
+  type: TacheType;
+  titre: string;
+  notes: string;
+  priorite: TachePriorite;
+  due_date: string | null;
+  status: TacheStatus;
+  done_at: string | null;
+}

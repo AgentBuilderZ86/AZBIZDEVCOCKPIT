@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   ArrowRight,
   Building2,
+  CalendarCheck,
   ChevronRight,
   Clock,
   Flame,
@@ -19,6 +20,7 @@ import { OffreSynthesisWidget } from "@/components/dashboard/offre-synthesis-wid
 import { GamificationSection } from "@/components/dashboard/gamification-section";
 import { AoHealthWidget } from "@/components/dashboard/ao-health-widget";
 import { ActionsUrgentesWidget } from "@/components/dashboard/actions-urgentes-widget";
+import { TachesSemaineWidget } from "@/components/dashboard/taches-semaine-widget";
 import { isIntelligenceEnabled } from "@/lib/intelligence/config";
 import type { Compte } from "@/lib/types";
 
@@ -99,6 +101,9 @@ export default async function HomePage() {
             }}
           >
             <Link href="/comptes">Plan de comptes <ArrowRight className="h-3.5 w-3.5" /></Link>
+          </Button>
+          <Button asChild variant="outline" size="sm" className="gap-1.5 font-medium">
+            <Link href="/semaine"><CalendarCheck className="h-3.5 w-3.5" /><span className="hidden sm:inline">Ma semaine</span></Link>
           </Button>
           <Button asChild variant="outline" size="sm" className="gap-1.5 font-medium">
             <Link href="/roadmap"><Map className="h-3.5 w-3.5" /><span className="hidden sm:inline">Roadmap</span></Link>
@@ -227,6 +232,7 @@ export default async function HomePage() {
             {/* ── COL 3 : Gamification + AO + Actions ── */}
             <div className="flex flex-col gap-3">
               <GamificationSection intelligenceOn={intelligenceOn} />
+              {intelligenceOn && <TachesSemaineWidget />}
               {intelligenceOn && <AoHealthWidget />}
               {intelligenceOn && <ActionsUrgentesWidget />}
             </div>

@@ -15,7 +15,7 @@ import { isIntelligenceEnabled, intelligenceConfig } from "@/lib/intelligence/co
 import { getDb } from "@/lib/intelligence/db";
 import { valueBadgeClass } from "@/lib/compte-ui";
 import { cn } from "@/lib/utils";
-import type { Compte360 } from "@/lib/types";
+import type { Compte360, TacheRow } from "@/lib/types";
 
 interface AoRow {
   id: string;
@@ -78,10 +78,11 @@ export default async function ComptePage({ params }: { params: { id: string } })
   const intelligenceOn = isIntelligenceEnabled();
   let aos: AoRow[] = [];
   let actions: ActionRow[] = [];
+  let taches: TacheRow[] = [];
 
   if (intelligenceOn) {
     const db = getDb();
-    [aos, actions] = await Promise.all([
+    [aos, actions, taches] = await Promise.all([
       db<AoRow[]>`
         SELECT id, titre, client, statut, score_fit, budget_k_eur, deadline, synthese, suggestion
         FROM ao_submissions
@@ -95,6 +96,16 @@ export default async function ComptePage({ params }: { params: { id: string } })
         WHERE compte_id = ${params.id}
         ORDER BY status ASC, horizon ASC, generated_at ASC
         LIMIT 30
+      `.catch(() => []),
+      db<TacheRow[]>`
+        SELECT id, compte_id, compte_nom, scope, cible_id, cible_nom,
+               type, titre, notes, priorite, due_date, status, done_at
+        FROM taches
+        WHERE compte_id = ${params.id} AND status = 'pending'
+        ORDER BY (due_date IS NULL), due_date ASC,
+                 CASE priorite WHEN 'haute' THEN 0 WHEN 'moyenne' THEN 1 ELSE 2 END,
+                 created_at DESC
+        LIMIT 50
       `.catch(() => []),
     ]);
   }
@@ -222,7 +233,16 @@ export default async function ComptePage({ params }: { params: { id: string } })
       <section className="mt-4 grid gap-4 lg:grid-cols-[2fr_1fr]">
         <div className="space-y-4">
           <Suspense fallback={<div className="h-48 animate-pulse rounded-md bg-muted" />}>
-            <Compte360Tabs contacts={contacts} opportunites={opportunites} signaux={signaux} aos={aos} actions={actions} />
+            <Compte360Tabs
+              contacts={contacts}
+              opportunites={opportunites}
+              signaux={signaux}
+              aos={aos}
+              actions={actions}
+              taches={taches}
+              compteId={compte.id}
+              compteNom={compte.compte}
+            />
           </Suspense>
           <div>
             <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">

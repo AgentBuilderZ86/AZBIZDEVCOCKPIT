@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { ExternalLink, CheckCircle2, Clock } from "lucide-react";
+import { ExternalLink, CheckCircle2, Clock, Plus } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,9 @@ import {
 import { valueBadgeClass } from "@/lib/compte-ui";
 import { cn } from "@/lib/utils";
 import { AO_STATUT_LABELS } from "@/lib/types";
-import type { Contact, Opportunite, Signal } from "@/lib/types";
+import type { Contact, Opportunite, Signal, TacheRow } from "@/lib/types";
+import { TacheForm } from "@/components/taches/tache-form";
+import { TachesList } from "@/components/taches/taches-list";
 
 interface AoRow {
   id: string;
@@ -50,6 +52,9 @@ interface Props {
   signaux: Signal[];
   aos?: AoRow[];
   actions?: ActionRow[];
+  taches?: TacheRow[];
+  compteId?: string;
+  compteNom?: string;
 }
 
 const AO_STATUT_COLORS: Record<string, string> = {
@@ -102,13 +107,24 @@ function fmtDate(iso: string): string {
   return new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "2-digit" });
 }
 
-export function Compte360Tabs({ contacts, opportunites, signaux, aos = [], actions = [] }: Props) {
+export function Compte360Tabs({
+  contacts,
+  opportunites,
+  signaux,
+  aos = [],
+  actions = [],
+  taches = [],
+  compteId = "",
+  compteNom = "",
+}: Props) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
   const tab = searchParams.get("tab") ?? "contacts";
 
   const [localActions, setLocalActions] = React.useState<ActionRow[]>(actions);
+  const [localTaches, setLocalTaches] = React.useState<TacheRow[]>(taches);
+  const tachesEnabled = Boolean(compteId);
 
   async function markAction(id: string, status: "done" | "skipped") {
     await fetch(`/api/revue-actions/${id}`, {
@@ -137,6 +153,11 @@ export function Compte360Tabs({ contacts, opportunites, signaux, aos = [], actio
         <TabsTrigger value="opps">Opportunités · {opportunites.length}</TabsTrigger>
         <TabsTrigger value="signaux">Signaux · {signaux.length}</TabsTrigger>
         {aos.length > 0 && <TabsTrigger value="aos">AOs · {aos.length}</TabsTrigger>}
+        {tachesEnabled && (
+          <TabsTrigger value="taches">
+            Tâches{localTaches.length > 0 && <span className="ml-1 rounded-full bg-primary px-1.5 py-0 text-[10px] font-bold text-white">{localTaches.length}</span>}
+          </TabsTrigger>
+        )}
         {localActions.length > 0 && (
           <TabsTrigger value="actions">
             Actions{pendingActions.length > 0 && <span className="ml-1 rounded-full bg-amber-500 px-1.5 py-0 text-[10px] font-bold text-white">{pendingActions.length}</span>}
@@ -214,7 +235,24 @@ export function Compte360Tabs({ contacts, opportunites, signaux, aos = [], actio
                         </Link>
                       )}
                     </TableCell>
-                    <TableCell><ExtLink url={c.url} /></TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        {tachesEnabled && (
+                          <TacheForm
+                            compteId={compteId}
+                            compteNom={compteNom}
+                            target={{ scope: "contact", cibleId: c.id, cibleNom: c.nomComplet }}
+                            onCreated={(t) => setLocalTaches((prev) => [t, ...prev])}
+                            trigger={
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Ajouter une tâche">
+                                <Plus className="h-3.5 w-3.5" />
+                              </Button>
+                            }
+                          />
+                        )}
+                        <ExtLink url={c.url} />
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -284,7 +322,24 @@ export function Compte360Tabs({ contacts, opportunites, signaux, aos = [], actio
                         <span className="block text-muted-foreground">{o.dateNextStep}</span>
                       )}
                     </TableCell>
-                    <TableCell><ExtLink url={o.url} /></TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        {tachesEnabled && (
+                          <TacheForm
+                            compteId={compteId}
+                            compteNom={compteNom}
+                            target={{ scope: "opportunite", cibleId: o.id, cibleNom: o.opportunite }}
+                            onCreated={(t) => setLocalTaches((prev) => [t, ...prev])}
+                            trigger={
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Ajouter une tâche">
+                                <Plus className="h-3.5 w-3.5" />
+                              </Button>
+                            }
+                          />
+                        )}
+                        <ExtLink url={o.url} />
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -410,6 +465,33 @@ export function Compte360Tabs({ contacts, opportunites, signaux, aos = [], actio
         <div className="mt-2 flex justify-end">
           <Link href="/ao" className="text-xs text-primary hover:underline">
             Voir le pipeline AO complet →
+          </Link>
+        </div>
+      </TabsContent>
+
+      {/* Tâches (TODO & appels manuels) */}
+      <TabsContent value="taches">
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-xs text-muted-foreground">
+            TODO &amp; appels à réaliser pour ce compte.
+          </p>
+          {tachesEnabled && (
+            <TacheForm
+              compteId={compteId}
+              compteNom={compteNom}
+              target={{ scope: "compte", cibleId: null, cibleNom: "" }}
+              onCreated={(t) => setLocalTaches((prev) => [t, ...prev])}
+            />
+          )}
+        </div>
+        <TachesList
+          taches={localTaches}
+          onChange={setLocalTaches}
+          emptyLabel="Aucune tâche. Ajoutez-en une, ou via les onglets Contacts / Opportunités."
+        />
+        <div className="mt-2 flex justify-end">
+          <Link href="/semaine" className="text-xs text-primary hover:underline">
+            Voir ma semaine →
           </Link>
         </div>
       </TabsContent>
