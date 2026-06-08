@@ -15,6 +15,7 @@ function flattenItem(item: DropItem): { kind: string; label: string; fields: Rec
     fields.email = item.contact.email ?? "";
     fields.linkedin = item.contact.linkedin ?? "";
     fields.telephone = item.contact.telephone ?? "";
+    fields.managerName = item.contact.managerName ?? "";
   } else if (item.kind === "opportunite" && item.opportunite) {
     fields.opportunite = item.opportunite.opportunite ?? "";
     fields.montant = item.opportunite.montant != null ? String(item.opportunite.montant) : "";

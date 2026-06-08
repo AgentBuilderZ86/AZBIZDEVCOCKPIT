@@ -25,6 +25,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { parseApiJson } from "@/lib/parse-api-json";
+import { namesMatch } from "@/lib/enrichment-match";
 import { OPP_STAGES } from "@/lib/types";
 
 type DropKind = "contact" | "opportunite" | "tache" | "note";
@@ -75,6 +76,40 @@ export function DropZoneDialog() {
     setCompteSel(NONE);
     setCompteQuery("");
   }
+
+  // Recalcule l'anti-doublon contact quand le compte cible change.
+  React.useEffect(() => {
+    if (!analyzed) return;
+    let cancelled = false;
+    (async () => {
+      if (compteSel === NONE || compteSel === CREATE) {
+        setItems((prev) =>
+          prev.map((it) => (it.kind === "contact" ? { ...it, existingNom: undefined } : it))
+        );
+        return;
+      }
+      try {
+        const res = await fetch(`/api/compte/${compteSel}/contacts`);
+        const data = await parseApiJson(res);
+        const contacts = (data.contacts as { nomComplet: string }[]) ?? [];
+        if (cancelled) return;
+        setItems((prev) =>
+          prev.map((it) => {
+            if (it.kind !== "contact") return it;
+            const nom = it.fields.nomComplet;
+            const match = nom ? contacts.find((c) => namesMatch(c.nomComplet, nom)) : undefined;
+            return { ...it, existingNom: match?.nomComplet, enabled: !match };
+          })
+        );
+      } catch {
+        /* silencieux */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compteSel, analyzed]);
 
   function setItemField(i: number, k: string, v: string) {
     setItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, fields: { ...it.fields, [k]: v } } : it)));
@@ -319,6 +354,7 @@ function ItemFields({
           <FieldRow label="Téléphone" value={f.telephone} onChange={(v) => onField("telephone", v)} />
         </div>
         <FieldRow label="LinkedIn" value={f.linkedin} onChange={(v) => onField("linkedin", v)} />
+        <FieldRow label="N+1 / Manager" value={f.managerName} onChange={(v) => onField("managerName", v)} />
       </div>
     );
   }

@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createContact, createOpportunite, createCompte } from "@/lib/notion";
+import {
+  createContact,
+  createOpportunite,
+  createCompte,
+  updateContact,
+  listContactsByCompte,
+} from "@/lib/notion";
+import { namesMatch } from "@/lib/enrichment-match";
 import { isIntelligenceEnabled } from "@/lib/intelligence/config";
 import { getDb } from "@/lib/intelligence/db";
 import { appendAccountJournal } from "@/lib/intelligence/journal";
@@ -51,17 +58,29 @@ export async function POST(req: NextRequest) {
     const dbReady = isIntelligenceEnabled();
     const db = dbReady ? getDb() : null;
 
+    // Carnet nom -> id pour résoudre la hiérarchie (contacts existants + créés).
+    const nameToId: { nom: string; id: string }[] = [];
+    if (compteId) {
+      const existing = await listContactsByCompte(compteId).catch(() => []);
+      for (const c of existing) nameToId.push({ nom: c.nomComplet, id: c.id });
+    }
+    const pendingManagers: { contactId: string; managerName: string }[] = [];
+
     for (const item of items) {
       const f = item.fields ?? {};
       try {
         if (item.kind === "contact") {
-          await createContact(compteId, {
+          const contact = await createContact(compteId, {
             nomComplet: str(f.nomComplet) || "Contact",
             titre: str(f.titre) || undefined,
             email: str(f.email) || null,
             linkedin: str(f.linkedin) || null,
             telephone: str(f.telephone) || null,
           });
+          nameToId.push({ nom: contact.nomComplet, id: contact.id });
+          if (str(f.managerName)) {
+            pendingManagers.push({ contactId: contact.id, managerName: str(f.managerName) });
+          }
           created.push("contact");
         } else if (item.kind === "opportunite") {
           if (!compteId) throw new Error("Opportunité sans compte");
@@ -104,6 +123,16 @@ export async function POST(req: NextRequest) {
         }
       } catch (e) {
         errors.push(`${item.kind} : ${e instanceof Error ? e.message : "échec"}`);
+      }
+    }
+
+    // Résolution de la hiérarchie N+1 (après création de tous les contacts).
+    for (const link of pendingManagers) {
+      const manager = nameToId.find(
+        (n) => n.id !== link.contactId && namesMatch(n.nom, link.managerName)
+      );
+      if (manager) {
+        await updateContact(link.contactId, { managerId: manager.id }).catch(() => {});
       }
     }
 

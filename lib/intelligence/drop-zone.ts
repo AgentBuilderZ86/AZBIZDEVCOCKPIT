@@ -26,6 +26,10 @@ const DropItemSchema = z.object({
       email: z.string().default(""),
       linkedin: z.string().default(""),
       telephone: z.string().default(""),
+      managerName: z
+        .string()
+        .default("")
+        .describe("Nom complet du manager / N+1 de cette personne, s'il est mentionné, sinon vide."),
     })
     .nullable(),
   opportunite: z
@@ -69,6 +73,7 @@ Règles de décomposition :
 - Un compte-rendu, un échange relaté, un contexte d'interaction ("a communiqué", "vu avec", "réunion du", relation hiérarchique N+1) => un objet "note" qui résume l'interaction.
 - compteQuery = le nom de l'entreprise commune mentionnée, sinon "".
 - Crée bien UN objet contact PAR personne : s'il y a deux personnes, renvoie deux objets contact.
+- Si une relation hiérarchique est exprimée ("sa N+1", "son manager", "reporte à", "son patron", "supérieur"), renseigne managerName sur la personne subordonnée avec le nom complet du manager. Ex : "X a transmis à sa N+1 Y" => le contact X a managerName = "Y".
 - La date du jour sert de référence pour "demain", "lundi"… (renvoie YYYY-MM-DD).
 - N'invente rien : laisse les champs vides si non fournis. Réponds en français.`;
 

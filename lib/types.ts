@@ -109,6 +109,7 @@ export interface Contact {
   statutContact: StatutContact | null;
   derniereInteraction: string | null;
   notes: string;
+  managerId: string | null;
   url: string;
 }
 
@@ -207,6 +208,7 @@ export interface ContactDraft {
   roleDecisionnel?: string;
   prioriteEngagement?: PrioriteEngagement | null;
   statutContact?: StatutContact | null;
+  managerId?: string | null;
 }
 
 /** Brouillon d'opportunité (création rapide). */
