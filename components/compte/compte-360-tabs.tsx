@@ -22,6 +22,7 @@ import type { Contact, Opportunite, Signal, TacheRow } from "@/lib/types";
 import { TacheForm } from "@/components/taches/tache-form";
 import { TachesList } from "@/components/taches/taches-list";
 import { useTacheActions } from "@/components/taches/use-tache-actions";
+import { RecoResolveDialog } from "@/components/revue-actions/reco-resolve-dialog";
 
 interface AoRow {
   id: string;
@@ -534,13 +535,33 @@ export function Compte360Tabs({
                         >
                           <Clock className="h-3 w-3" />
                         </Button>
-                        <Button
-                          size="sm"
-                          className="h-7 px-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-                          onClick={() => void markAction(a.id, "done")}
-                        >
-                          <CheckCircle2 className="h-3 w-3" />
-                        </Button>
+                        <RecoResolveDialog
+                          action={{
+                            id: a.id,
+                            compteId,
+                            compteNom,
+                            actionText: a.action_text,
+                            targetContacts: a.target_contacts ?? "",
+                          }}
+                          contacts={contacts}
+                          onResolved={(id) =>
+                            setLocalActions((prev) =>
+                              prev.map((x) =>
+                                x.id === id
+                                  ? { ...x, status: "done", done_at: new Date().toISOString() }
+                                  : x
+                              )
+                            )
+                          }
+                          trigger={
+                            <Button
+                              size="sm"
+                              className="h-7 px-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                            >
+                              <CheckCircle2 className="h-3 w-3" />
+                            </Button>
+                          }
+                        />
                       </div>
                     </div>
                   ))}

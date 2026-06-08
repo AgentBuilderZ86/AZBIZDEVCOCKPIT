@@ -204,6 +204,9 @@ export interface ContactDraft {
   telephone?: string | null;
   direction?: string;
   niveauInfluence?: NiveauInfluence | null;
+  roleDecisionnel?: string;
+  prioriteEngagement?: PrioriteEngagement | null;
+  statutContact?: StatutContact | null;
 }
 
 /** Brouillon de signal proposé par l'enrichissement. */

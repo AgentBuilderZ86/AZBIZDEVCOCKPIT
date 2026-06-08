@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TachesList } from "@/components/taches/taches-list";
 import { useTacheActions } from "@/components/taches/use-tache-actions";
+import { RecoResolveDialog } from "@/components/revue-actions/reco-resolve-dialog";
 import { cn } from "@/lib/utils";
 import { parseApiJson } from "@/lib/parse-api-json";
 import type { TacheRow } from "@/lib/types";
@@ -14,8 +15,10 @@ import type { TacheRow } from "@/lib/types";
 /** Forme SQL renvoyée par /api/revue-actions (snake_case). */
 interface RevueActionRow {
   id: string;
+  compte_id: string;
   compte_nom: string;
   action_text: string;
+  target_contacts: string;
   horizon: string;
 }
 
@@ -197,6 +200,18 @@ export function SemaineClient() {
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium leading-snug">{a.action_text}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">{a.compte_nom}</p>
+                </div>
+                <div className="shrink-0">
+                  <RecoResolveDialog
+                    action={{
+                      id: a.id,
+                      compteId: a.compte_id,
+                      compteNom: a.compte_nom,
+                      actionText: a.action_text,
+                      targetContacts: a.target_contacts ?? "",
+                    }}
+                    onResolved={(id) => setActions((prev) => prev.filter((x) => x.id !== id))}
+                  />
                 </div>
               </div>
             ))}

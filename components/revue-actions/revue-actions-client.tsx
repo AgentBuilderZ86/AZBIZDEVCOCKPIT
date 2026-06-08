@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { RecoResolveDialog } from "@/components/revue-actions/reco-resolve-dialog";
 
 interface RevueAction {
   id: string;
@@ -391,6 +392,29 @@ export function RevueActionsClient() {
                 Oui, c&apos;est fait !
               </Button>
             </div>
+            {action && (
+              <div className="mt-2">
+                <RecoResolveDialog
+                  action={{
+                    id: action.id,
+                    compteId: action.compte_id,
+                    compteNom: action.compte_nom,
+                    actionText: action.action_text,
+                    targetContacts: action.target_contacts ?? "",
+                  }}
+                  onResolved={() => {
+                    setCompletedCount((n) => n + 1);
+                    if (step.phase === "review") goNext(step.actions, step.index);
+                  }}
+                  trigger={
+                    <Button variant="outline" size="sm" className="w-full gap-1.5">
+                      <Zap className="h-3.5 w-3.5" />
+                      Qualifier / résoudre (contacts)
+                    </Button>
+                  }
+                />
+              </div>
+            )}
           </div>
         )}
       </div>

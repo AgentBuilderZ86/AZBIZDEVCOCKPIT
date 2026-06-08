@@ -487,7 +487,7 @@ export async function createContact(
   const props: Record<string, unknown> = {
     "Nom complet": writeTitle(draft.nomComplet),
     Compte: writeRelation(compteId),
-    "Statut contact": writeSelect("À identifier"),
+    "Statut contact": writeSelect(draft.statutContact ?? "À identifier"),
   };
   if (draft.prenom) props["Prénom"] = writeRichText(draft.prenom);
   if (draft.nom) props["Nom"] = writeRichText(draft.nom);
@@ -498,6 +498,10 @@ export async function createContact(
   if (draft.telephone) props["Téléphone"] = writePhone(draft.telephone);
   if (draft.niveauInfluence)
     props["Niveau influence"] = writeSelect(draft.niveauInfluence);
+  if (draft.roleDecisionnel)
+    props["Rôle décisionnel"] = writeRichText(draft.roleDecisionnel);
+  if (draft.prioriteEngagement)
+    props["Priorité engagement"] = writeSelect(draft.prioriteEngagement);
 
   const page: any = await withRetry(() =>
     notion.pages.create({
@@ -527,6 +531,12 @@ export async function updateContact(
     props["Téléphone"] = writePhone(patch.telephone);
   if (patch.niveauInfluence !== undefined)
     props["Niveau influence"] = writeSelect(patch.niveauInfluence);
+  if (patch.roleDecisionnel !== undefined)
+    props["Rôle décisionnel"] = writeRichText(patch.roleDecisionnel);
+  if (patch.prioriteEngagement !== undefined)
+    props["Priorité engagement"] = writeSelect(patch.prioriteEngagement);
+  if (patch.statutContact !== undefined)
+    props["Statut contact"] = writeSelect(patch.statutContact);
 
   const page: any = await withRetry(() =>
     notion.pages.update({ page_id: contactId, properties: props as any })
