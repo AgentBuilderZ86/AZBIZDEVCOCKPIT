@@ -10,6 +10,7 @@ import type {
   CompteUpdate,
   Contact,
   ContactDraft,
+  OpportuniteDraft,
   SignalDraft,
   NiveauInfluence,
   Opportunite,
@@ -486,9 +487,9 @@ export async function createContact(
   const notion = getNotionClient();
   const props: Record<string, unknown> = {
     "Nom complet": writeTitle(draft.nomComplet),
-    Compte: writeRelation(compteId),
     "Statut contact": writeSelect(draft.statutContact ?? "À identifier"),
   };
+  if (compteId) props.Compte = writeRelation(compteId);
   if (draft.prenom) props["Prénom"] = writeRichText(draft.prenom);
   if (draft.nom) props["Nom"] = writeRichText(draft.nom);
   if (draft.titre) props["Titre"] = writeRichText(draft.titre);
@@ -573,6 +574,34 @@ export async function createSignal(
   );
   logWriteback("create", page.id, { type: "signal", ...draft });
   return notionPageToSignal(page);
+}
+
+/** Crée une Opportunité rattachée à un compte. */
+export async function createOpportunite(
+  compteId: string,
+  draft: OpportuniteDraft
+): Promise<Opportunite> {
+  const { db } = notionConfig();
+  const notion = getNotionClient();
+  const props: Record<string, unknown> = {
+    "Opportunité": writeTitle(draft.opportunite),
+    Compte: writeRelation(compteId),
+  };
+  if (draft.montant != null) props["Montant (k€)"] = writeNumber(draft.montant);
+  if (draft.probabilite != null) props["Probabilité %"] = writeNumber(draft.probabilite);
+  if (draft.stage) props["Stage"] = writeSelect(draft.stage);
+  if (draft.nextStep) props["Next step"] = writeRichText(draft.nextStep);
+  if (draft.dateClose) props["Date close prévue"] = writeDate(draft.dateClose);
+  if (draft.notes) props["Notes"] = writeRichText(draft.notes);
+
+  const page: any = await withRetry(() =>
+    notion.pages.create({
+      parent: { database_id: db.opportunites },
+      properties: props as any,
+    })
+  );
+  logWriteback("create", page.id, { type: "opportunite", ...draft });
+  return notionPageToOpportunite(page);
 }
 
 /**

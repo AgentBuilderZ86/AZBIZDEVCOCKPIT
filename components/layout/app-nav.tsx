@@ -4,6 +4,7 @@ import Link from "next/link";
 import { BarChart3, Home, Building2, BookOpen, FileDown, Map, BookMarked, Users, FileSearch, ClipboardCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NavLink } from "./nav-link";
+import { DropZoneDialog } from "@/components/drop-zone/drop-zone-dialog";
 
 export function AppNav() {
   return (
@@ -52,8 +53,9 @@ export function AppNav() {
           <NavLink href="/revue-actions" label="Revue Actions" icon={ClipboardCheck} />
         </div>
 
-        {/* Rapport PDF à droite */}
-        <div className="ml-auto">
+        {/* Capture rapide + Rapport PDF à droite */}
+        <div className="ml-auto flex items-center gap-2">
+          <DropZoneDialog />
           <Button
             asChild
             variant="outline"

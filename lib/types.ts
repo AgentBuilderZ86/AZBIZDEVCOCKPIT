@@ -209,6 +209,17 @@ export interface ContactDraft {
   statutContact?: StatutContact | null;
 }
 
+/** Brouillon d'opportunité (création rapide). */
+export interface OpportuniteDraft {
+  opportunite: string;
+  montant?: number | null;
+  probabilite?: number | null;
+  stage?: OppStage | null;
+  nextStep?: string;
+  dateClose?: string | null;
+  notes?: string;
+}
+
 /** Brouillon de signal proposé par l'enrichissement. */
 export interface SignalDraft {
   titre: string;
