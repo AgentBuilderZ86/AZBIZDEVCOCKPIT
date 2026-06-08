@@ -381,7 +381,13 @@ export interface RevueAction {
 export type TacheType = "todo" | "appel";
 export type TacheScope = "compte" | "contact" | "opportunite";
 export type TachePriorite = "haute" | "moyenne" | "basse";
-export type TacheStatus = "pending" | "done";
+export type TacheStatus = "pending" | "in_progress" | "done";
+
+export const TACHE_STATUS_LABELS: Record<TacheStatus, string> = {
+  pending: "À faire",
+  in_progress: "En cours",
+  done: "Fait",
+};
 
 /** Forme SQL renvoyée par les routes /api/taches (snake_case, consommée directement). */
 export interface TacheRow {

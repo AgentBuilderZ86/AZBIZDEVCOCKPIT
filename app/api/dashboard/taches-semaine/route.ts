@@ -22,16 +22,18 @@ export async function GET() {
     >`
       SELECT
         COUNT(*) FILTER (
-          WHERE status = 'pending'
+          WHERE status <> 'done'
             AND (due_date IS NULL OR due_date <= (date_trunc('week', now()) + interval '6 days')::date)
         ) AS week_cnt,
         COUNT(*) FILTER (
-          WHERE status = 'pending' AND due_date < current_date
+          WHERE status <> 'done' AND due_date < current_date
         ) AS overdue_cnt,
         COUNT(*) FILTER (
-          WHERE status = 'pending' AND type = 'appel'
+          WHERE status <> 'done' AND type = 'appel'
         ) AS call_cnt,
-        COUNT(*) FILTER (WHERE status = 'done') AS done_cnt
+        COUNT(*) FILTER (
+          WHERE status = 'done' AND done_at >= date_trunc('week', now())
+        ) AS done_cnt
       FROM taches
     `;
     const r = rows[0];

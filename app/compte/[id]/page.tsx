@@ -101,7 +101,7 @@ export default async function ComptePage({ params }: { params: { id: string } })
         SELECT id, compte_id, compte_nom, scope, cible_id, cible_nom,
                type, titre, notes, priorite, due_date, status, done_at
         FROM taches
-        WHERE compte_id = ${params.id} AND status = 'pending'
+        WHERE compte_id = ${params.id} AND status <> 'done'
         ORDER BY (due_date IS NULL), due_date ASC,
                  CASE priorite WHEN 'haute' THEN 0 WHEN 'moyenne' THEN 1 ELSE 2 END,
                  created_at DESC

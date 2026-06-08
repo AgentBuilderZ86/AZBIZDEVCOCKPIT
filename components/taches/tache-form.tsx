@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { parseApiJson } from "@/lib/parse-api-json";
-import type { TacheScope, TacheRow } from "@/lib/types";
+import type { TacheScope, TacheStatus, TacheRow } from "@/lib/types";
 
 export interface TacheTarget {
   scope: TacheScope;
@@ -51,6 +51,7 @@ export function TacheForm({ compteId, compteNom, target, trigger, onCreated }: P
   const [titre, setTitre] = React.useState("");
   const [dueDate, setDueDate] = React.useState("");
   const [priorite, setPriorite] = React.useState<"haute" | "moyenne" | "basse">("moyenne");
+  const [status, setStatus] = React.useState<TacheStatus>("pending");
   const [notes, setNotes] = React.useState("");
 
   function reset() {
@@ -58,6 +59,7 @@ export function TacheForm({ compteId, compteNom, target, trigger, onCreated }: P
     setTitre("");
     setDueDate("");
     setPriorite("moyenne");
+    setStatus("pending");
     setNotes("");
   }
 
@@ -81,6 +83,7 @@ export function TacheForm({ compteId, compteNom, target, trigger, onCreated }: P
           titre,
           notes,
           priorite,
+          status,
           dueDate: dueDate || null,
         }),
       });
@@ -154,9 +157,22 @@ export function TacheForm({ compteId, compteNom, target, trigger, onCreated }: P
             />
           </div>
 
-          <div className="space-y-1">
-            <Label className="text-xs">Échéance</Label>
-            <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Échéance</Label>
+              <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Statut</Label>
+              <Select value={status} onValueChange={(v) => setStatus(v as TacheStatus)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">À faire</SelectItem>
+                  <SelectItem value="in_progress">En cours</SelectItem>
+                  <SelectItem value="done">Fait</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="space-y-1">

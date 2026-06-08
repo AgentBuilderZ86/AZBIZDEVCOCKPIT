@@ -25,6 +25,10 @@ export async function PATCH(
   const id = params.id;
   const status = typeof body.status === "string" ? body.status : null;
 
+  if (!status || !["pending", "in_progress", "done"].includes(status)) {
+    return NextResponse.json({ error: "status invalide." }, { status: 400 });
+  }
+
   try {
     if (status === "done") {
       const rows = await db<
@@ -53,16 +57,13 @@ export async function PATCH(
       return NextResponse.json({ ok: true });
     }
 
-    if (status === "pending") {
-      await db`
-        UPDATE taches
-        SET status = 'pending', done_at = NULL, updated_at = now()
-        WHERE id = ${id}
-      `;
-      return NextResponse.json({ ok: true });
-    }
-
-    return NextResponse.json({ error: "status invalide." }, { status: 400 });
+    // pending / in_progress : repasse en non-terminé, efface done_at
+    await db`
+      UPDATE taches
+      SET status = ${status}, done_at = NULL, updated_at = now()
+      WHERE id = ${id}
+    `;
+    return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Erreur DB." },

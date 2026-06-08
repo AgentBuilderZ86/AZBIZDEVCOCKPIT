@@ -21,6 +21,7 @@ import { AO_STATUT_LABELS } from "@/lib/types";
 import type { Contact, Opportunite, Signal, TacheRow } from "@/lib/types";
 import { TacheForm } from "@/components/taches/tache-form";
 import { TachesList } from "@/components/taches/taches-list";
+import { useTacheActions } from "@/components/taches/use-tache-actions";
 
 interface AoRow {
   id: string;
@@ -125,6 +126,7 @@ export function Compte360Tabs({
   const [localActions, setLocalActions] = React.useState<ActionRow[]>(actions);
   const [localTaches, setLocalTaches] = React.useState<TacheRow[]>(taches);
   const tachesEnabled = Boolean(compteId);
+  const tacheActions = useTacheActions(localTaches, setLocalTaches);
 
   async function markAction(id: string, status: "done" | "skipped") {
     await fetch(`/api/revue-actions/${id}`, {
@@ -486,7 +488,8 @@ export function Compte360Tabs({
         </div>
         <TachesList
           taches={localTaches}
-          onChange={setLocalTaches}
+          onSetStatus={tacheActions.setStatus}
+          onDelete={tacheActions.remove}
           emptyLabel="Aucune tâche. Ajoutez-en une, ou via les onglets Contacts / Opportunités."
         />
         <div className="mt-2 flex justify-end">

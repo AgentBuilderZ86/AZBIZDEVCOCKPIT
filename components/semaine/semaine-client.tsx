@@ -6,6 +6,7 @@ import { Sparkles, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TachesList } from "@/components/taches/taches-list";
+import { useTacheActions } from "@/components/taches/use-tache-actions";
 import { cn } from "@/lib/utils";
 import { parseApiJson } from "@/lib/parse-api-json";
 import type { TacheRow } from "@/lib/types";
@@ -45,6 +46,7 @@ export function SemaineClient() {
   const [taches, setTaches] = React.useState<TacheRow[]>([]);
   const [actions, setActions] = React.useState<RevueActionRow[]>([]);
   const [filter, setFilter] = React.useState<Filter>("all");
+  const { setStatus, remove } = useTacheActions(taches, setTaches);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -52,7 +54,8 @@ export function SemaineClient() {
       setLoading(true);
       try {
         const [tRes, aRes] = await Promise.all([
-          fetch("/api/taches?range=week&status=pending"),
+          // status=all : on récupère à faire / en cours / fait (fait = réalisé cette semaine)
+          fetch("/api/taches?range=week&status=all"),
           fetch("/api/revue-actions?status=pending"),
         ]);
         const tData = await parseApiJson(tRes);
@@ -75,12 +78,18 @@ export function SemaineClient() {
   const filtered = taches.filter((t) => filter === "all" || t.type === filter);
   const eow = endOfWeek().getTime();
 
-  const overdue = filtered.filter((t) => t.due_date && daysUntil(t.due_date) < 0);
-  const thisWeek = filtered.filter(
+  const active = filtered.filter((t) => t.status !== "done");
+  const done = filtered.filter((t) => t.status === "done");
+
+  const overdue = active.filter((t) => t.due_date && daysUntil(t.due_date) < 0);
+  const thisWeek = active.filter(
     (t) => t.due_date && daysUntil(t.due_date) >= 0 && new Date(t.due_date).getTime() <= eow
   );
-  const later = filtered.filter((t) => t.due_date && new Date(t.due_date).getTime() > eow);
-  const noDate = filtered.filter((t) => !t.due_date);
+  const later = active.filter((t) => t.due_date && new Date(t.due_date).getTime() > eow);
+  const noDate = active.filter((t) => !t.due_date);
+
+  const totalWeek = active.length + done.length;
+  const progress = totalWeek > 0 ? Math.round((done.length / totalWeek) * 100) : 0;
 
   if (loading) {
     return (
@@ -100,6 +109,30 @@ export function SemaineClient() {
 
   return (
     <div className="space-y-5">
+      {/* Barre de progression de la semaine */}
+      {totalWeek > 0 && (
+        <div className="rounded-xl border bg-white/60 p-4">
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-semibold">Avancement de la semaine</span>
+            <span className="text-muted-foreground">
+              {done.length}/{totalWeek} · {progress}%
+            </span>
+          </div>
+          <div className="mt-2 flex h-2 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-emerald-500 transition-all"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+            <span><span className="font-medium text-foreground">{overdue.length}</span> en retard</span>
+            <span><span className="font-medium text-foreground">{active.filter((t) => t.status === "in_progress").length}</span> en cours</span>
+            <span><span className="font-medium text-foreground">{active.filter((t) => t.status === "pending").length}</span> à faire</span>
+            <span><span className="font-medium text-emerald-600">{done.length}</span> fait</span>
+          </div>
+        </div>
+      )}
+
       {/* Filtres */}
       <div className="flex gap-1.5">
         {(["all", "todo", "appel"] as Filter[]).map((f) => (
@@ -116,22 +149,28 @@ export function SemaineClient() {
       </div>
 
       <Bucket title="En retard" count={overdue.length} tone="danger">
-        <TachesList taches={overdue} emptyLabel="Rien en retard. 👍" />
+        <TachesList taches={overdue} onSetStatus={setStatus} onDelete={remove} emptyLabel="Rien en retard. 👍" />
       </Bucket>
 
       <Bucket title="Cette semaine" count={thisWeek.length}>
-        <TachesList taches={thisWeek} emptyLabel="Aucune échéance cette semaine." />
+        <TachesList taches={thisWeek} onSetStatus={setStatus} onDelete={remove} emptyLabel="Aucune échéance cette semaine." />
       </Bucket>
 
       {noDate.length > 0 && (
         <Bucket title="Sans échéance" count={noDate.length}>
-          <TachesList taches={noDate} />
+          <TachesList taches={noDate} onSetStatus={setStatus} onDelete={remove} />
         </Bucket>
       )}
 
       {later.length > 0 && (
         <Bucket title="À venir" count={later.length}>
-          <TachesList taches={later} />
+          <TachesList taches={later} onSetStatus={setStatus} onDelete={remove} />
+        </Bucket>
+      )}
+
+      {done.length > 0 && (
+        <Bucket title="Réalisé cette semaine" count={done.length} tone="success">
+          <TachesList taches={done} onSetStatus={setStatus} onDelete={remove} />
         </Bucket>
       )}
 
@@ -176,19 +215,27 @@ function Bucket({
 }: {
   title: string;
   count: number;
-  tone?: "danger";
+  tone?: "danger" | "success";
   children: React.ReactNode;
 }) {
+  const danger = tone === "danger" && count > 0;
+  const success = tone === "success" && count > 0;
   return (
     <div>
       <h2
         className={cn(
           "mb-2 flex items-center gap-2 text-sm font-semibold",
-          tone === "danger" && count > 0 ? "text-red-600" : ""
+          danger ? "text-red-600" : success ? "text-emerald-700" : ""
         )}
       >
         {title}
-        <Badge variant="outline" className={tone === "danger" && count > 0 ? "border-red-200 text-red-600" : ""}>
+        <Badge
+          variant="outline"
+          className={cn(
+            danger ? "border-red-200 text-red-600" : "",
+            success ? "border-emerald-200 text-emerald-700" : ""
+          )}
+        >
           {count}
         </Badge>
       </h2>

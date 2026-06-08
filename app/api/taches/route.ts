@@ -15,7 +15,8 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const compteId = searchParams.get("compte_id");
   const cibleId = searchParams.get("cible_id");
-  const status = searchParams.get("status") ?? "pending";
+  // status : "all" / "active" (pending+in_progress) / valeur exacte. Défaut : active.
+  const status = searchParams.get("status") ?? "active";
   const weekOnly = searchParams.get("range") === "week";
 
   const db = getDb();
@@ -24,15 +25,22 @@ export async function GET(req: NextRequest) {
       SELECT id, compte_id, compte_nom, scope, cible_id, cible_nom,
              type, titre, notes, priorite, due_date, status, done_at
       FROM taches
-      WHERE status = ${status}
-        AND (${compteId}::text IS NULL OR compte_id = ${compteId})
+      WHERE (${compteId}::text IS NULL OR compte_id = ${compteId})
         AND (${cibleId}::text IS NULL OR cible_id = ${cibleId})
         AND (
+          ${status} = 'all'
+          OR (${status} = 'active' AND status <> 'done')
+          OR status = ${status}
+        )
+        AND (
           ${weekOnly} = false
-          OR due_date IS NULL
-          OR due_date <= (date_trunc('week', now()) + interval '6 days')::date
+          -- À faire / en cours : échéance ≤ fin de semaine (ou sans date)
+          OR (status <> 'done' AND (due_date IS NULL OR due_date <= (date_trunc('week', now()) + interval '6 days')::date))
+          -- Fait : réalisé depuis le début de la semaine (pour le bilan)
+          OR (status = 'done' AND done_at >= date_trunc('week', now()))
         )
       ORDER BY
+        (status = 'done'),
         (due_date IS NULL),
         due_date ASC,
         CASE priorite WHEN 'haute' THEN 0 WHEN 'moyenne' THEN 1 ELSE 2 END,
@@ -76,15 +84,18 @@ export async function POST(req: NextRequest) {
   const priorite =
     body.priorite === "haute" || body.priorite === "basse" ? body.priorite : "moyenne";
   const dueDate = typeof body.dueDate === "string" && body.dueDate ? body.dueDate : null;
+  const status =
+    body.status === "in_progress" || body.status === "done" ? body.status : "pending";
+  const doneAt = status === "done" ? new Date() : null;
 
   const db = getDb();
   try {
     const rows = await db<TacheRow[]>`
       INSERT INTO taches
-        (compte_id, compte_nom, scope, cible_id, cible_nom, type, titre, notes, priorite, due_date)
+        (compte_id, compte_nom, scope, cible_id, cible_nom, type, titre, notes, priorite, due_date, status, done_at)
       VALUES
         (${compteId}, ${compteNom}, ${scope}, ${cibleId}, ${cibleNom},
-         ${type}, ${titre}, ${notes}, ${priorite}, ${dueDate})
+         ${type}, ${titre}, ${notes}, ${priorite}, ${dueDate}, ${status}, ${doneAt})
       RETURNING id, compte_id, compte_nom, scope, cible_id, cible_nom,
                 type, titre, notes, priorite, due_date, status, done_at
     `;
