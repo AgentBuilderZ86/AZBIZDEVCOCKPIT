@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  createContact,
-  createOpportunite,
-  createCompte,
-} from "@/lib/notion";
+import { createContact, createOpportunite, createCompte } from "@/lib/notion";
 import { isIntelligenceEnabled } from "@/lib/intelligence/config";
 import { getDb } from "@/lib/intelligence/db";
 import { appendAccountJournal } from "@/lib/intelligence/journal";
@@ -15,9 +11,14 @@ function str(v: unknown): string {
   return typeof v === "string" ? v : "";
 }
 
+interface BatchItem {
+  kind: string;
+  fields: Record<string, string>;
+}
+
 /**
- * POST { type, compteId?, compteNom?, createCompteNom?, payload }
- * Crée l'objet détecté par la Drop Zone.
+ * POST { compteId?, compteNom?, createCompteNom?, items: BatchItem[] }
+ * Crée en lot les objets validés par la Drop Zone.
  */
 export async function POST(req: NextRequest) {
   let body: Record<string, unknown>;
@@ -27,10 +28,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Body JSON invalide." }, { status: 400 });
   }
 
-  const type = str(body.type);
-  const payload = (body.payload ?? {}) as Record<string, unknown>;
+  const items = Array.isArray(body.items) ? (body.items as BatchItem[]) : [];
+  if (items.length === 0) {
+    return NextResponse.json({ error: "Aucun objet à créer." }, { status: 400 });
+  }
+
   let compteId = str(body.compteId);
   let compteNom = str(body.compteNom);
+
+  const created: string[] = [];
+  const errors: string[] = [];
 
   try {
     // Création optionnelle d'un nouveau compte à la volée.
@@ -41,84 +48,66 @@ export async function POST(req: NextRequest) {
       compteNom = compte.compte;
     }
 
-    if (type === "contact") {
-      const contact = await createContact(compteId, {
-        nomComplet: str(payload.nomComplet) || "Contact",
-        prenom: str(payload.prenom) || undefined,
-        nom: str(payload.nom) || undefined,
-        titre: str(payload.titre) || undefined,
-        email: str(payload.email) || null,
-        linkedin: str(payload.linkedin) || null,
-        telephone: str(payload.telephone) || null,
-      });
-      return NextResponse.json({ ok: true, kind: "contact", url: contact.url });
+    const dbReady = isIntelligenceEnabled();
+    const db = dbReady ? getDb() : null;
+
+    for (const item of items) {
+      const f = item.fields ?? {};
+      try {
+        if (item.kind === "contact") {
+          await createContact(compteId, {
+            nomComplet: str(f.nomComplet) || "Contact",
+            titre: str(f.titre) || undefined,
+            email: str(f.email) || null,
+            linkedin: str(f.linkedin) || null,
+            telephone: str(f.telephone) || null,
+          });
+          created.push("contact");
+        } else if (item.kind === "opportunite") {
+          if (!compteId) throw new Error("Opportunité sans compte");
+          const m = parseFloat(str(f.montant));
+          await createOpportunite(compteId, {
+            opportunite: str(f.opportunite) || "Opportunité",
+            montant: Number.isFinite(m) ? m : null,
+            stage: (str(f.stage) || null) as OppStage | null,
+            nextStep: str(f.nextStep) || undefined,
+          });
+          created.push("opportunité");
+        } else if (item.kind === "tache") {
+          if (!db) throw new Error("DB inactive");
+          if (!compteId) throw new Error("Tâche sans compte");
+          const tacheType = str(f.type) === "appel" ? "appel" : "todo";
+          const dueDate = str(f.dueDate) || null;
+          await db`
+            INSERT INTO taches (compte_id, compte_nom, scope, type, titre, due_date)
+            VALUES (${compteId}, ${compteNom}, 'compte', ${tacheType}, ${str(f.titre) || "Tâche"}, ${dueDate})
+          `;
+          void appendAccountJournal({
+            accountUrl: "",
+            accountId: compteId,
+            eventType: "interaction",
+            source: "manuel",
+            payload: { kind: "tache_creee", type: tacheType, titre: str(f.titre), via: "drop-zone" },
+          }).catch(() => {});
+          created.push("tâche");
+        } else if (item.kind === "note") {
+          if (!db) throw new Error("DB inactive");
+          if (!compteId) throw new Error("Note sans compte");
+          await appendAccountJournal({
+            accountUrl: "",
+            accountId: compteId,
+            eventType: "note",
+            source: "manuel",
+            payload: { texte: str(f.texte), via: "drop-zone" },
+          });
+          created.push("note");
+        }
+      } catch (e) {
+        errors.push(`${item.kind} : ${e instanceof Error ? e.message : "échec"}`);
+      }
     }
 
-    if (type === "opportunite") {
-      if (!compteId) {
-        return NextResponse.json(
-          { error: "Une opportunité doit être rattachée à un compte." },
-          { status: 400 }
-        );
-      }
-      const montantRaw = payload.montant;
-      const opp = await createOpportunite(compteId, {
-        opportunite: str(payload.opportunite) || "Opportunité",
-        montant: typeof montantRaw === "number" ? montantRaw : null,
-        stage: (str(payload.stage) || null) as OppStage | null,
-        nextStep: str(payload.nextStep) || undefined,
-      });
-      return NextResponse.json({ ok: true, kind: "opportunite", url: opp.url });
-    }
-
-    if (type === "tache") {
-      if (!isIntelligenceEnabled()) {
-        return NextResponse.json({ error: "Intelligence inactive (DATABASE_URL)." }, { status: 503 });
-      }
-      if (!compteId) {
-        return NextResponse.json(
-          { error: "Une tâche doit être rattachée à un compte." },
-          { status: 400 }
-        );
-      }
-      const db = getDb();
-      const tacheType = str(payload.type) === "appel" ? "appel" : "todo";
-      const dueDate = str(payload.dueDate) || null;
-      await db`
-        INSERT INTO taches (compte_id, compte_nom, scope, type, titre, due_date)
-        VALUES (${compteId}, ${compteNom}, 'compte', ${tacheType}, ${str(payload.titre) || "Tâche"}, ${dueDate})
-      `;
-      void appendAccountJournal({
-        accountUrl: "",
-        accountId: compteId,
-        eventType: "interaction",
-        source: "manuel",
-        payload: { kind: "tache_creee", type: tacheType, titre: str(payload.titre), via: "drop-zone" },
-      }).catch(() => {});
-      return NextResponse.json({ ok: true, kind: "tache" });
-    }
-
-    if (type === "note") {
-      if (!isIntelligenceEnabled()) {
-        return NextResponse.json({ error: "Intelligence inactive (DATABASE_URL)." }, { status: 503 });
-      }
-      if (!compteId) {
-        return NextResponse.json(
-          { error: "Une note doit être rattachée à un compte." },
-          { status: 400 }
-        );
-      }
-      await appendAccountJournal({
-        accountUrl: "",
-        accountId: compteId,
-        eventType: "note",
-        source: "manuel",
-        payload: { texte: str(payload.texte), via: "drop-zone" },
-      });
-      return NextResponse.json({ ok: true, kind: "note" });
-    }
-
-    return NextResponse.json({ error: "Type inconnu." }, { status: 400 });
+    return NextResponse.json({ ok: true, created, errors, compteId });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Erreur de création." },

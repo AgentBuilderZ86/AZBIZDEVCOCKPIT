@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Sparkles, Loader2, User, Target, ListTodo, FileText } from "lucide-react";
+import { Plus, Sparkles, Loader2, User, Target, ListTodo, FileText, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,20 +23,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { parseApiJson } from "@/lib/parse-api-json";
 import { OPP_STAGES } from "@/lib/types";
 
-type DropType = "contact" | "opportunite" | "tache" | "note";
+type DropKind = "contact" | "opportunite" | "tache" | "note";
 
-interface Classification {
-  type: DropType;
-  confidence: number;
-  summary: string;
-  compteQuery: string;
-  contact: Record<string, string> | null;
-  opportunite: Record<string, unknown> | null;
-  tache: Record<string, string> | null;
-  note: { texte: string } | null;
+interface DropItem {
+  kind: DropKind;
+  label: string;
+  fields: Record<string, string>;
+  existingNom?: string;
+  enabled: boolean;
 }
 
 interface CompteCandidate {
@@ -47,11 +45,11 @@ interface CompteCandidate {
 const NONE = "__none";
 const CREATE = "__create";
 
-const TYPE_META: Record<DropType, { label: string; icon: React.ElementType }> = {
-  contact: { label: "Contact", icon: User },
-  opportunite: { label: "Opportunité", icon: Target },
-  tache: { label: "Action / RDV", icon: ListTodo },
-  note: { label: "Note / CR", icon: FileText },
+const KIND_META: Record<DropKind, { label: string; icon: React.ElementType; color: string }> = {
+  contact: { label: "Contact", icon: User, color: "text-blue-600" },
+  opportunite: { label: "Opportunité", icon: Target, color: "text-violet-600" },
+  tache: { label: "Action / RDV", icon: ListTodo, color: "text-amber-600" },
+  note: { label: "Note / CR", icon: FileText, color: "text-slate-600" },
 };
 
 export function DropZoneDialog() {
@@ -60,25 +58,29 @@ export function DropZoneDialog() {
   const [input, setInput] = React.useState("");
   const [analyzing, setAnalyzing] = React.useState(false);
   const [creating, setCreating] = React.useState(false);
+  const [analyzed, setAnalyzed] = React.useState(false);
 
-  const [type, setType] = React.useState<DropType>("contact");
-  const [fields, setFields] = React.useState<Record<string, string>>({});
+  const [summary, setSummary] = React.useState("");
+  const [items, setItems] = React.useState<DropItem[]>([]);
   const [candidates, setCandidates] = React.useState<CompteCandidate[]>([]);
   const [compteSel, setCompteSel] = React.useState<string>(NONE);
   const [compteQuery, setCompteQuery] = React.useState("");
-  const [analyzed, setAnalyzed] = React.useState(false);
 
   function reset() {
     setInput("");
     setAnalyzed(false);
-    setFields({});
+    setSummary("");
+    setItems([]);
     setCandidates([]);
     setCompteSel(NONE);
     setCompteQuery("");
   }
 
-  function setField(k: string, v: string) {
-    setFields((p) => ({ ...p, [k]: v }));
+  function setItemField(i: number, k: string, v: string) {
+    setItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, fields: { ...it.fields, [k]: v } } : it)));
+  }
+  function toggleItem(i: number) {
+    setItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, enabled: !it.enabled } : it)));
   }
 
   async function analyze() {
@@ -93,39 +95,16 @@ export function DropZoneDialog() {
       const data = await parseApiJson(res);
       if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Échec de l'analyse.");
 
-      const c = data.classification as Classification;
+      const raw = (data.items as Omit<DropItem, "enabled">[]) ?? [];
       const cands = (data.compteCandidates as CompteCandidate[]) ?? [];
-      setType(c.type);
-      setCompteQuery(c.compteQuery ?? "");
-      setCandidates(cands);
-      setCompteSel(cands.length > 0 ? cands[0].id : c.compteQuery ? CREATE : NONE);
+      const q = typeof data.compteQuery === "string" ? data.compteQuery : "";
 
-      // Pré-remplir les champs éditables selon le type
-      if (c.type === "contact" && c.contact) {
-        setFields({
-          nomComplet: c.contact.nomComplet ?? "",
-          titre: c.contact.titre ?? "",
-          email: c.contact.email ?? "",
-          linkedin: c.contact.linkedin ?? "",
-          telephone: c.contact.telephone ?? "",
-        });
-      } else if (c.type === "opportunite" && c.opportunite) {
-        const o = c.opportunite;
-        setFields({
-          opportunite: String(o.opportunite ?? ""),
-          montant: o.montant != null ? String(o.montant) : "",
-          stage: typeof o.stage === "string" ? o.stage : "",
-          nextStep: String(o.nextStep ?? ""),
-        });
-      } else if (c.type === "tache" && c.tache) {
-        setFields({
-          titre: c.tache.titre ?? "",
-          type: c.tache.type ?? "todo",
-          dueDate: c.tache.dueDate ?? "",
-        });
-      } else if (c.type === "note" && c.note) {
-        setFields({ texte: c.note.texte ?? "" });
-      }
+      setSummary(typeof data.summary === "string" ? data.summary : "");
+      setCompteQuery(q);
+      setCandidates(cands);
+      setCompteSel(cands.length > 0 ? cands[0].id : q ? CREATE : NONE);
+      // Contacts déjà en base : décochés par défaut.
+      setItems(raw.map((it) => ({ ...it, enabled: !it.existingNom })));
       setAnalyzed(true);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur réseau.");
@@ -135,27 +114,33 @@ export function DropZoneDialog() {
   }
 
   async function create() {
+    const enabled = items.filter((it) => it.enabled);
+    if (enabled.length === 0) {
+      toast.error("Sélectionne au moins un objet.");
+      return;
+    }
     setCreating(true);
     try {
       const compteId = compteSel !== NONE && compteSel !== CREATE ? compteSel : "";
       const compteNom = candidates.find((c) => c.id === compteId)?.compte ?? "";
       const createCompteNom = compteSel === CREATE ? compteQuery : "";
 
-      const payload: Record<string, unknown> = { ...fields };
-      if (type === "opportunite") {
-        const m = parseFloat(fields.montant ?? "");
-        payload.montant = Number.isFinite(m) ? m : null;
-      }
-
       const res = await fetch("/api/drop-zone/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, compteId, compteNom, createCompteNom, payload }),
+        body: JSON.stringify({
+          compteId,
+          compteNom,
+          createCompteNom,
+          items: enabled.map((it) => ({ kind: it.kind, fields: it.fields })),
+        }),
       });
       const data = await parseApiJson(res);
       if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Échec de la création.");
 
-      toast.success(`${TYPE_META[type].label} créé.`);
+      const createdArr = (data.created as string[]) ?? [];
+      const errs = (data.errors as string[]) ?? [];
+      toast.success(`${createdArr.length} objet(s) créé(s)${errs.length ? ` · ${errs.length} échec(s)` : ""}.`);
       reset();
       setOpen(false);
       router.refresh();
@@ -166,10 +151,11 @@ export function DropZoneDialog() {
     }
   }
 
-  const compteRequired = type !== "contact";
-  const compteMissing =
-    compteRequired &&
-    (compteSel === NONE || (compteSel === CREATE && !compteQuery.trim()));
+  const enabledCount = items.filter((it) => it.enabled).length;
+  const needsCompte = items.some((it) => it.enabled && it.kind !== "contact");
+  const compteResolved =
+    (compteSel !== NONE && compteSel !== CREATE) || (compteSel === CREATE && compteQuery.trim().length > 0);
+  const compteMissing = needsCompte && !compteResolved;
 
   return (
     <Dialog
@@ -193,7 +179,7 @@ export function DropZoneDialog() {
         <span className="hidden sm:inline">Capture</span>
       </Button>
 
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-primary" /> Capture rapide
@@ -206,7 +192,7 @@ export function DropZoneDialog() {
             onChange={(e) => setInput(e.target.value)}
             rows={3}
             autoFocus
-            placeholder="Ex : Merieme El Alaoui, DSI Label'Vie · Refonte data BCP 200k€ · Rappeler M. Alami demain · CR réunion…"
+            placeholder="Ex : Omar Tounsi (Akwa Group) a communiqué nos coordonnées à sa N+1 Sanae Maddah, Chief Strategy Officer…"
             onKeyDown={(e) => {
               if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void analyze();
             }}
@@ -219,97 +205,22 @@ export function DropZoneDialog() {
           )}
 
           {analyzed && (
-            <div className="space-y-3 rounded-xl border bg-muted/20 p-3">
-              {/* Type détecté */}
-              <div className="space-y-1">
-                <Label className="text-[11px]">Type détecté</Label>
-                <Select value={type} onValueChange={(v) => setType(v as DropType)}>
-                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {(Object.keys(TYPE_META) as DropType[]).map((t) => (
-                      <SelectItem key={t} value={t}>{TYPE_META[t].label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-3">
+              {summary && <p className="text-xs text-muted-foreground">{summary}</p>}
 
-              {/* Champs selon le type */}
-              {type === "contact" && (
-                <>
-                  <FieldRow label="Nom complet" value={fields.nomComplet} onChange={(v) => setField("nomComplet", v)} />
-                  <FieldRow label="Titre" value={fields.titre} onChange={(v) => setField("titre", v)} />
-                  <div className="grid grid-cols-2 gap-2">
-                    <FieldRow label="Email" value={fields.email} onChange={(v) => setField("email", v)} />
-                    <FieldRow label="Téléphone" value={fields.telephone} onChange={(v) => setField("telephone", v)} />
-                  </div>
-                  <FieldRow label="LinkedIn" value={fields.linkedin} onChange={(v) => setField("linkedin", v)} />
-                </>
-              )}
-              {type === "opportunite" && (
-                <>
-                  <FieldRow label="Opportunité" value={fields.opportunite} onChange={(v) => setField("opportunite", v)} />
-                  <div className="grid grid-cols-2 gap-2">
-                    <FieldRow label="Montant (k€)" value={fields.montant} onChange={(v) => setField("montant", v)} />
-                    <div className="space-y-1">
-                      <Label className="text-[11px]">Stage</Label>
-                      <Select value={fields.stage || NONE} onValueChange={(v) => setField("stage", v === NONE ? "" : v)}>
-                        <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={NONE}>—</SelectItem>
-                          {OPP_STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <FieldRow label="Next step" value={fields.nextStep} onChange={(v) => setField("nextStep", v)} />
-                </>
-              )}
-              {type === "tache" && (
-                <>
-                  <FieldRow label="Intitulé" value={fields.titre} onChange={(v) => setField("titre", v)} />
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <Label className="text-[11px]">Type</Label>
-                      <Select value={fields.type || "todo"} onValueChange={(v) => setField("type", v)}>
-                        <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="todo">Tâche</SelectItem>
-                          <SelectItem value="appel">Appel</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[11px]">Échéance</Label>
-                      <Input type="date" value={fields.dueDate ?? ""} onChange={(e) => setField("dueDate", e.target.value)} className="h-9" />
-                    </div>
-                  </div>
-                </>
-              )}
-              {type === "note" && (
-                <div className="space-y-1">
-                  <Label className="text-[11px]">Note / compte-rendu</Label>
-                  <Textarea value={fields.texte ?? ""} onChange={(e) => setField("texte", e.target.value)} rows={3} />
-                </div>
-              )}
-
-              {/* Rattachement compte */}
-              <div className="space-y-1">
+              {/* Rattachement compte (partagé) */}
+              <div className="space-y-1 rounded-lg border bg-muted/20 p-2.5">
                 <Label className="text-[11px]">
-                  Compte {compteRequired && <span className="text-red-500">*</span>}
+                  Compte {needsCompte && <span className="text-red-500">*</span>}
                 </Label>
                 <Select value={compteSel} onValueChange={setCompteSel}>
                   <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {!compteRequired && <SelectItem value={NONE}>Aucun compte</SelectItem>}
+                    <SelectItem value={NONE}>Aucun compte</SelectItem>
                     {candidates.map((c) => (
                       <SelectItem key={c.id} value={c.id}>{c.compte}</SelectItem>
                     ))}
-                    {compteQuery && (
-                      <SelectItem value={CREATE}>+ Créer « {compteQuery} »</SelectItem>
-                    )}
-                    {compteRequired && candidates.length === 0 && !compteQuery && (
-                      <SelectItem value={NONE} disabled>Aucun compte trouvé</SelectItem>
-                    )}
+                    {compteQuery && <SelectItem value={CREATE}>+ Créer « {compteQuery} »</SelectItem>}
                   </SelectContent>
                 </Select>
                 {compteSel === CREATE && (
@@ -322,9 +233,55 @@ export function DropZoneDialog() {
                 )}
               </div>
 
-              <Badge variant="outline" className="text-[10px]">
-                {TYPE_META[type].label}
-              </Badge>
+              {/* Objets détectés */}
+              {items.length === 0 ? (
+                <p className="rounded-md border py-6 text-center text-sm text-muted-foreground">
+                  Aucun objet détecté.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {items.map((it, i) => {
+                    const Meta = KIND_META[it.kind];
+                    return (
+                      <div
+                        key={i}
+                        className={cn(
+                          "rounded-xl border p-3 transition-opacity",
+                          it.enabled ? "bg-white/70" : "bg-muted/30 opacity-60"
+                        )}
+                      >
+                        <div className="flex items-start gap-2">
+                          <input
+                            type="checkbox"
+                            checked={it.enabled}
+                            onChange={() => toggleItem(i)}
+                            className="mt-1 h-4 w-4 shrink-0 accent-primary"
+                          />
+                          <Meta.icon className={cn("mt-0.5 h-4 w-4 shrink-0", Meta.color)} />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <Badge variant="outline" className="text-[10px]">{Meta.label}</Badge>
+                              {it.existingNom && (
+                                <span className="flex items-center gap-1 text-[11px] text-amber-600">
+                                  <AlertTriangle className="h-3 w-3" /> déjà en base — décoché
+                                </span>
+                              )}
+                            </div>
+                            {it.enabled && <ItemFields item={it} onField={(k, v) => setItemField(i, k, v)} />}
+                            {!it.enabled && <p className="mt-1 text-xs text-muted-foreground">{it.label}</p>}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {compteMissing && (
+                <p className="text-[11px] text-red-500">
+                  Un compte est requis pour les opportunités, actions et notes.
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -334,13 +291,86 @@ export function DropZoneDialog() {
             Annuler
           </Button>
           {analyzed && (
-            <Button onClick={() => void create()} disabled={creating || compteMissing}>
-              {creating ? "Création…" : "Créer"}
+            <Button onClick={() => void create()} disabled={creating || enabledCount === 0 || compteMissing}>
+              {creating ? "Création…" : `Créer (${enabledCount})`}
             </Button>
           )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ItemFields({
+  item,
+  onField,
+}: {
+  item: DropItem;
+  onField: (k: string, v: string) => void;
+}) {
+  const f = item.fields;
+  if (item.kind === "contact") {
+    return (
+      <div className="mt-2 space-y-2">
+        <FieldRow label="Nom complet" value={f.nomComplet} onChange={(v) => onField("nomComplet", v)} />
+        <FieldRow label="Titre" value={f.titre} onChange={(v) => onField("titre", v)} />
+        <div className="grid grid-cols-2 gap-2">
+          <FieldRow label="Email" value={f.email} onChange={(v) => onField("email", v)} />
+          <FieldRow label="Téléphone" value={f.telephone} onChange={(v) => onField("telephone", v)} />
+        </div>
+        <FieldRow label="LinkedIn" value={f.linkedin} onChange={(v) => onField("linkedin", v)} />
+      </div>
+    );
+  }
+  if (item.kind === "opportunite") {
+    return (
+      <div className="mt-2 space-y-2">
+        <FieldRow label="Opportunité" value={f.opportunite} onChange={(v) => onField("opportunite", v)} />
+        <div className="grid grid-cols-2 gap-2">
+          <FieldRow label="Montant (k€)" value={f.montant} onChange={(v) => onField("montant", v)} />
+          <div className="space-y-1">
+            <Label className="text-[11px]">Stage</Label>
+            <Select value={f.stage || NONE} onValueChange={(v) => onField("stage", v === NONE ? "" : v)}>
+              <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>—</SelectItem>
+                {OPP_STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <FieldRow label="Next step" value={f.nextStep} onChange={(v) => onField("nextStep", v)} />
+      </div>
+    );
+  }
+  if (item.kind === "tache") {
+    return (
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <div className="col-span-2">
+          <FieldRow label="Intitulé" value={f.titre} onChange={(v) => onField("titre", v)} />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px]">Type</Label>
+          <Select value={f.type || "todo"} onValueChange={(v) => onField("type", v)}>
+            <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todo">Tâche</SelectItem>
+              <SelectItem value="appel">Appel</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px]">Échéance</Label>
+          <Input type="date" value={f.dueDate ?? ""} onChange={(e) => onField("dueDate", e.target.value)} className="h-9" />
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-2 space-y-1">
+      <Label className="text-[11px]">Note / compte-rendu</Label>
+      <Textarea value={f.texte ?? ""} onChange={(e) => onField("texte", e.target.value)} rows={2} />
+    </div>
   );
 }
 
