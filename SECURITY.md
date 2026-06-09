@@ -39,15 +39,19 @@ L'application **se verrouille par défaut** : sans configuration Clerk, personne
 - Pas d'injection SQL (requêtes paramétrées `postgres.js`), pas de XSS (`dangerouslySetInnerHTML` absent), pas de SSRF.
 - Connexion Postgres en SSL forcé (Neon/Supabase).
 
-## Suivi recommandé (non bloquant)
+## Suivi — état
 
-1. **CSP en mode enforcing** : après validation visuelle, passer
-   `Content-Security-Policy-Report-Only` → `Content-Security-Policy` dans `next.config.js`.
-2. **Rate-limiting robuste** : remplacer le limiteur en mémoire par Upstash Ratelimit (Redis)
-   ou les règles Netlify Edge (l'état mémoire n'est pas partagé entre instances serverless).
-3. **Migration Next.js 15** : plusieurs avis de sécurité `next@14.2.x` ne sont corrigés qu'en
-   15.x (migration à tester séparément). En attendant, l'app est derrière authentification.
-4. **Remplacer `xlsx`** (vulnérabilités sans correctif) par `exceljs` pour le parsing AO.
-   Surface réduite : l'upload est désormais authentifié.
-5. **Zod** : étendre la validation runtime aux autres routes POST/PATCH d'écriture.
-6. **DPA** : documenter les accords de traitement des données avec Anthropic, Apollo, Hunter, Explorium.
+| # | Item | État |
+|---|------|------|
+| 1 | Remplacer `xlsx` (vulnérable) par `exceljs` | ✅ Fait |
+| 2 | Étendre la validation Zod / UUID aux routes d'écriture | ✅ Fait (comptes, journal, taches, revue-actions) |
+| 3 | CSP en mode enforcing | ✅ Toggle `CSP_ENFORCE=1` (Report-Only par défaut ; activer après validation visuelle) |
+| 4 | Rate-limiting robuste (Upstash) | ✅ Fait sur les routes coûteuses (`lib/rate-limit-upstash.ts`, runtime Node) ; définir `UPSTASH_REDIS_REST_URL/_TOKEN` pour l'activer |
+| 5 | Registre DPA / flux de données tiers | ✅ Fait → `DATA-PROCESSING.md` |
+| 6 | Migration Next.js 15 (CVE Next) | ⏳ PR séparée (`claude/next15-migration`) — **QA runtime requise avant merge** |
+
+### Actions manuelles restantes
+- Activer `CSP_ENFORCE=1` après vérification visuelle de l'UI.
+- Définir les variables Upstash pour un quota global partagé (sinon repli mémoire par instance).
+- Valider puis merger la migration Next.js 15 (React 19) après QA en preview.
+- Signer/documenter les DPA listés dans `DATA-PROCESSING.md`.
