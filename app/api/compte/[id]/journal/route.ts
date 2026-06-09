@@ -50,11 +50,20 @@ export async function POST(
   }
 
   try {
-    const body = (await req.json()) as {
-      note?: string;
-      payload?: Record<string, unknown>;
+    const raw = (await req.json()) as {
+      note?: unknown;
+      payload?: unknown;
     };
-    const payload = body.payload ?? { note: body.note ?? "" };
+    const note = typeof raw.note === "string" ? raw.note.slice(0, 10000) : "";
+    // payload doit être un objet plat sérialisable et de taille raisonnable.
+    let payload: Record<string, unknown> = { note };
+    if (raw.payload && typeof raw.payload === "object" && !Array.isArray(raw.payload)) {
+      const json = JSON.stringify(raw.payload);
+      if (json.length > 20000) {
+        return NextResponse.json({ error: "Payload trop volumineux." }, { status: 400 });
+      }
+      payload = raw.payload as Record<string, unknown>;
+    }
     const id = await journalManualNote(params.id, payload);
     if (!id) {
       return NextResponse.json(
