@@ -8,6 +8,15 @@ export const dynamic = "force-dynamic";
 
 const MAX_BYTES = 5 * 1024 * 1024; // 5 Mo
 const ALLOWED_EXT = new Set(["xlsx", "xls", "csv"]);
+const ALLOWED_MIME = new Set([
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-excel",
+  "text/csv",
+  "application/csv",
+  "text/plain",
+  "application/octet-stream", // certains navigateurs n'envoient pas de type fiable
+  "",
+]);
 
 export async function POST(req: NextRequest) {
   if (!isIntelligenceEnabled()) {
@@ -33,6 +42,12 @@ export async function POST(req: NextRequest) {
   if (!ALLOWED_EXT.has(ext)) {
     return NextResponse.json(
       { error: "Format non supporté. Acceptés : xlsx, xls, csv." },
+      { status: 400 }
+    );
+  }
+  if (!ALLOWED_MIME.has((file.type ?? "").toLowerCase())) {
+    return NextResponse.json(
+      { error: "Type de fichier non autorisé." },
       { status: 400 }
     );
   }

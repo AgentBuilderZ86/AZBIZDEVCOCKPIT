@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { BarChart3, Home, Building2, BookOpen, FileDown, Map, BookMarked, Users, FileSearch, ClipboardCheck } from "lucide-react";
+import { UserButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { NavLink } from "./nav-link";
 import { DropZoneDialog } from "@/components/drop-zone/drop-zone-dialog";
@@ -78,6 +79,7 @@ export function AppNav() {
               <span className="hidden sm:inline">Rapport PDF</span>
             </a>
           </Button>
+          <UserButton afterSignOutUrl="/sign-in" />
         </div>
       </div>
     </nav>

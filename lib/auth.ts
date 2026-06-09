@@ -1,9 +1,10 @@
 import "server-only";
+import { auth, currentUser } from "@clerk/nextjs/server";
 
 /**
- * Couche d'abstraction auth — prête pour Clerk (NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY).
- * Tant que Clerk n'est pas installé, toutes les fonctions retournent un user "owner" unique.
- * Remplacer les stubs par les imports Clerk lors de l'installation.
+ * Couche d'abstraction auth (Clerk).
+ * L'authentification est imposée globalement par `middleware.ts` ; ces helpers
+ * servent à récupérer l'utilisateur côté serveur et à appliquer une logique de rôle.
  */
 
 export type UserRole = "admin" | "commercial" | "viewer";
@@ -15,19 +16,36 @@ export interface CurrentUser {
   secteurs: string[] | null; // null = accès à tous les secteurs
 }
 
-// --- Stubs pré-Clerk ---
-// À remplacer par : import { auth, currentUser } from "@clerk/nextjs/server";
+const allowedEmails = (process.env.ALLOWED_EMAILS ?? process.env.OWNER_EMAIL ?? "")
+  .split(",")
+  .map((s) => s.trim().toLowerCase())
+  .filter(Boolean);
 
-async function getClerkUser(): Promise<CurrentUser | null> {
-  // Stub : owner unique (mode solo actuel)
-  const ownerId = process.env.OWNER_USER_ID ?? "owner";
-  const ownerEmail = process.env.OWNER_EMAIL ?? "azriouil.az@gmail.com";
-  return { userId: ownerId, email: ownerEmail, role: "admin", secteurs: null };
+/** Retourne l'utilisateur courant Clerk ou null si non authentifié / non autorisé. */
+export async function getCurrentUser(): Promise<CurrentUser | null> {
+  const { userId } = await auth();
+  if (!userId) return null;
+
+  const user = await currentUser();
+  const email = (
+    user?.primaryEmailAddress?.emailAddress ??
+    user?.emailAddresses?.[0]?.emailAddress ??
+    ""
+  ).toLowerCase();
+
+  // Défense en profondeur : refuser si une allowlist est définie et l'e-mail n'y est pas.
+  if (allowedEmails.length > 0 && email && !allowedEmails.includes(email)) {
+    return null;
+  }
+
+  return { userId, email, role: "admin", secteurs: null };
 }
 
-/** Retourne l'utilisateur courant ou null si non authentifié. */
-export async function getCurrentUser(): Promise<CurrentUser | null> {
-  return getClerkUser();
+/** Garde pour route handler : retourne l'utilisateur ou lance une erreur (401/403). */
+export async function requireUser(): Promise<CurrentUser> {
+  const user = await getCurrentUser();
+  if (!user) throw new Error("Non authentifié.");
+  return user;
 }
 
 /** Lance une erreur si l'utilisateur n'a pas l'un des rôles requis. */

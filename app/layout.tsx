@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "@/components/ui/sonner";
 import { AppNav } from "@/components/layout/app-nav";
 import "./globals.css";
@@ -22,14 +23,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="fr" suppressHydrationWarning>
-      <body className="min-h-screen bg-background antialiased">
-        <AppNav />
-        <div className="pt-14">
-          {children}
-        </div>
-        <Toaster richColors position="top-right" />
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="fr" suppressHydrationWarning>
+        <body className="min-h-screen bg-background antialiased">
+          <AppNav />
+          <div className="pt-14">
+            {children}
+          </div>
+          <Toaster richColors position="top-right" />
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

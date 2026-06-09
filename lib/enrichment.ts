@@ -86,6 +86,22 @@ export async function buildEnrichmentData(
   const sources: string[] = [];
   const people: (ApolloPerson & { telephone?: string | null })[] = [];
 
+  // Kill-switch gouvernance : si l'enrichissement externe est désactivé, on
+  // n'envoie AUCUNE donnée client à Apollo / Hunter / Explorium.
+  if (process.env.DISABLE_EXTERNAL_ENRICHMENT === "1") {
+    return {
+      compteId,
+      compte,
+      contacts,
+      signaux,
+      firmo: null,
+      people: [],
+      phoneMap: {},
+      warnings: ["Enrichissement externe désactivé (DISABLE_EXTERNAL_ENRICHMENT=1)."],
+      sources: [],
+    };
+  }
+
   // Toutes les sources en parallèle — pas de dépendance domaine.
   const [firmoRes, exploriumRes, hunterRes, peopleRes] = await Promise.all([
     enrichOrganization(compte.compte),
