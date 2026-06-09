@@ -1,5 +1,21 @@
 /** @type {import('next').NextConfig} */
 
+// CSP : enforcing si CSP_ENFORCE=1, sinon Report-Only (non bloquant).
+const cspEnforce = process.env.CSP_ENFORCE === "1";
+const cspValue = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.clerk.accounts.dev https://*.clerk.com https://challenges.cloudflare.com",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data:",
+  "connect-src 'self' https://*.clerk.accounts.dev https://*.clerk.com",
+  "frame-src 'self' https://*.clerk.accounts.dev https://challenges.cloudflare.com",
+  "worker-src 'self' blob:",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join("; ");
+
 // En-têtes de sécurité appliqués à toutes les réponses.
 const securityHeaders = [
   // Empêche le rendu du site dans une iframe (clickjacking).
@@ -18,23 +34,12 @@ const securityHeaders = [
     key: "Strict-Transport-Security",
     value: "max-age=63072000; includeSubDomains; preload",
   },
-  // CSP en mode Report-Only : ne casse rien, signale les violations.
-  // À passer en `Content-Security-Policy` (enforcing) après validation.
+  // CSP : Report-Only par défaut (ne casse rien). Mettre CSP_ENFORCE=1 pour l'imposer.
   {
-    key: "Content-Security-Policy-Report-Only",
-    value: [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.clerk.accounts.dev https://*.clerk.com https://challenges.cloudflare.com",
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https:",
-      "font-src 'self' data:",
-      "connect-src 'self' https://*.clerk.accounts.dev https://*.clerk.com",
-      "frame-src 'self' https://*.clerk.accounts.dev https://challenges.cloudflare.com",
-      "worker-src 'self' blob:",
-      "frame-ancestors 'none'",
-      "base-uri 'self'",
-      "form-action 'self'",
-    ].join("; "),
+    key: cspEnforce
+      ? "Content-Security-Policy"
+      : "Content-Security-Policy-Report-Only",
+    value: cspValue,
   },
 ];
 
