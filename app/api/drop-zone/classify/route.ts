@@ -3,6 +3,7 @@ import { integrations } from "@/lib/config";
 import { classifyDropInput, type DropItem } from "@/lib/intelligence/drop-zone";
 import { listComptes, listContactsByCompte } from "@/lib/notion";
 import { namesMatch, normalizeName } from "@/lib/enrichment-match";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit-upstash";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,9 @@ function flattenItem(item: DropItem): { kind: string; label: string; fields: Rec
 
 /** POST { input } — décompose la saisie et propose comptes + détecte les contacts existants. */
 export async function POST(req: NextRequest) {
+  if (!(await checkRateLimit(`${clientIp(req)}:dropzone`))) {
+    return NextResponse.json({ error: "Trop de requêtes." }, { status: 429 });
+  }
   if (!integrations.anthropicApiKey) {
     return NextResponse.json({ error: "ANTHROPIC_API_KEY absente." }, { status: 503 });
   }

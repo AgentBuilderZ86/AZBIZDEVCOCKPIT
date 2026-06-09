@@ -35,7 +35,8 @@ export default clerkMiddleware(async (auth, req) => {
   // Les routes cron/background s'authentifient via CRON_SECRET, pas Clerk.
   if (isCronRoute(req)) return NextResponse.next();
 
-  // Rate-limit best-effort sur l'API (hors cron déjà filtré).
+  // Rate-limit large (Edge, en mémoire) sur l'API. Les routes coûteuses ont en plus
+  // un quota Upstash robuste (cf. lib/rate-limit-upstash.ts).
   if (isApiRoute(req)) {
     const ok = rateLimit(`${clientIp(req)}:api`);
     if (!ok) {

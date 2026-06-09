@@ -3,6 +3,7 @@ import { analyzeCompteOffres, getCachedAnalysis } from "@/lib/intelligence/offre
 import { isIntelligenceEnabled } from "@/lib/intelligence/config";
 import { integrations } from "@/lib/config";
 import { pingDb } from "@/lib/intelligence/db";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit-upstash";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -34,9 +35,12 @@ export async function GET(
 }
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  if (!(await checkRateLimit(`${clientIp(req)}:offre-analysis`))) {
+    return NextResponse.json({ error: "Trop de requêtes." }, { status: 429 });
+  }
   if (!isIntelligenceEnabled()) {
     return NextResponse.json(
       { error: "Couche Intelligence inactive (DATABASE_URL)." },

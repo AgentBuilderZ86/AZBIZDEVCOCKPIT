@@ -1,18 +1,17 @@
 /**
- * Rate-limiter best-effort en mémoire (fenêtre glissante).
+ * Rate-limiter best-effort en mémoire (fenêtre glissante) — compatible Edge Runtime.
  *
- * ⚠️ Limite : sur Netlify/serverless, l'état est par instance de fonction (non partagé).
- * Cela atténue les rafales sur une même instance mais n'est pas un quota global strict.
- * Pour une protection robuste multi-instances, brancher Upstash Ratelimit (Redis)
- * ou les règles de rate-limiting Netlify Edge.
+ * ⚠️ L'état est par instance serverless (non partagé). Utilisé par le middleware
+ * (Edge) comme garde large. Pour un quota global robuste sur les routes coûteuses,
+ * voir `lib/rate-limit-upstash.ts` (runtime Node uniquement).
  */
 
-const WINDOW_MS = 60_000; // 1 minute
-const MAX_HITS = 120; // 120 requêtes / minute / IP
+export const RL_WINDOW_MS = 60_000; // 1 minute
+export const RL_MAX_HITS = 120; // 120 requêtes / minute / IP
 
 const hits = new Map<string, number[]>();
 
-export function rateLimit(key: string, max = MAX_HITS, windowMs = WINDOW_MS): boolean {
+export function rateLimit(key: string, max = RL_MAX_HITS, windowMs = RL_WINDOW_MS): boolean {
   const now = Date.now();
   const arr = (hits.get(key) ?? []).filter((t) => now - t < windowMs);
   arr.push(now);
