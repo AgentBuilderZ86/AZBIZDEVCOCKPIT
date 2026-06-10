@@ -5,6 +5,7 @@ import { UserButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { NavLink } from "./nav-link";
 import { DropZoneDialog } from "@/components/drop-zone/drop-zone-dialog";
+import { CopilotCommand } from "@/components/copilot/copilot-command";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export function AppNav() {
@@ -41,6 +42,7 @@ export function AppNav() {
 
         {/* Actions à droite */}
         <div className="ml-auto flex items-center gap-2">
+          <CopilotCommand />
           <DropZoneDialog />
           <Button asChild variant="outline" size="sm" className="gap-1.5 text-xs font-medium">
             <a href="/api/rapport/pdf" target="_blank" rel="noreferrer" aria-label="Télécharger le rapport PDF du portefeuille">
