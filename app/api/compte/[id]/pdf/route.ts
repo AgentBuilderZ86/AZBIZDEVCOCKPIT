@@ -10,10 +10,8 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 /** GET → PDF one-pager « Focus compte ». */
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const data = await getCompte360(params.id);
     const nba = await resolveNextBestAction(

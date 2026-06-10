@@ -19,10 +19,8 @@ function str(v: unknown): string | undefined {
 }
 
 /** GET — liste les contacts rattachés au compte (pour le matching de noms). */
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const contacts = await listContactsByCompte(params.id);
     return NextResponse.json({ contacts });
@@ -35,10 +33,8 @@ export async function GET(
 }
 
 /** POST — crée un contact rattaché au compte. */
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;

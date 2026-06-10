@@ -46,9 +46,8 @@ const securityHeaders = [
 const nextConfig = {
   reactStrictMode: true,
   // @react-pdf/renderer doit rester un package serveur externe (fontkit & co).
-  experimental: {
-    serverComponentsExternalPackages: ["@react-pdf/renderer", "unpdf"],
-  },
+  // (Next 15 : renommé `serverComponentsExternalPackages` → `serverExternalPackages`.)
+  serverExternalPackages: ["@react-pdf/renderer", "unpdf"],
   poweredByHeader: false,
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];

@@ -7,10 +7,8 @@ import { journalManualNote } from "@/lib/intelligence/journal-hooks";
 export const dynamic = "force-dynamic";
 
 /** GET — derniers événements du journal de compte. */
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   if (!isIntelligenceEnabled()) {
     return NextResponse.json({
       enabled: false,
@@ -35,10 +33,8 @@ export async function GET(
 }
 
 /** POST — ajoute une entrée manuelle (CR de RDV, note). */
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   if (!isIntelligenceEnabled()) {
     return NextResponse.json(
       {

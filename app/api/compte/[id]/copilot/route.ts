@@ -10,10 +10,8 @@ import { checkRateLimit, clientIp } from "@/lib/rate-limit-upstash";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   if (!(await checkRateLimit(`${clientIp(req)}:copilot`))) {
     return NextResponse.json({ error: "Trop de requêtes." }, { status: 429 });
   }

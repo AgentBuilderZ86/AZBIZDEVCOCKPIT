@@ -8,10 +8,8 @@ import { checkRateLimit, clientIp } from "@/lib/rate-limit-upstash";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   if (!isIntelligenceEnabled()) {
     return NextResponse.json(
       { error: "Couche Intelligence inactive (DATABASE_URL)." },
@@ -34,10 +32,8 @@ export async function GET(
   }
 }
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   if (!(await checkRateLimit(`${clientIp(req)}:offre-analysis`))) {
     return NextResponse.json({ error: "Trop de requêtes." }, { status: 429 });
   }
