@@ -33,7 +33,7 @@ export function NavLink({ href, label, icon: Icon }: NavLinkProps) {
         />
       )}
       <Icon className={cn("relative h-3.5 w-3.5 shrink-0", isActive && "text-primary")} />
-      <span className="relative hidden lg:inline">{label}</span>
+      <span className="relative hidden md:inline">{label}</span>
     </Link>
   );
 }
