@@ -23,6 +23,7 @@ import { GamificationSection } from "@/components/dashboard/gamification-section
 import { AoHealthWidget } from "@/components/dashboard/ao-health-widget";
 import { ActionsUrgentesWidget } from "@/components/dashboard/actions-urgentes-widget";
 import { TachesSemaineWidget } from "@/components/dashboard/taches-semaine-widget";
+import { DerniersSignauxWidget } from "@/components/dashboard/derniers-signaux-widget";
 import { isIntelligenceEnabled } from "@/lib/intelligence/config";
 import type { Compte } from "@/lib/types";
 
@@ -196,6 +197,7 @@ export default async function HomePage() {
               <GamificationSection intelligenceOn={intelligenceOn} />
               {intelligenceOn && <AoHealthWidget />}
             </div>
+            {intelligenceOn && <DerniersSignauxWidget />}
             {intelligenceOn && <OffreSynthesisWidget />}
           </section>
         </>
