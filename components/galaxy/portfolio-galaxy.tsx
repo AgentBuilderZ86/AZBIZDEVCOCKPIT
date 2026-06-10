@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { ZoomIn, ZoomOut, Maximize2, Minimize2, RotateCcw, Search, X } from "lucide-react";
+import { ZoomIn, ZoomOut, Maximize2, Minimize2, RotateCcw, Search, X, Radar } from "lucide-react";
 
 export interface GalaxyStar {
   id: string;
@@ -11,6 +11,7 @@ export interface GalaxyStar {
   stage: string | null;
   score: number | null;
   arr: number | null;
+  relancer?: boolean;
 }
 
 const W = 1000;
@@ -103,9 +104,28 @@ export function PortfolioGalaxy({ stars }: { stars: GalaxyStar[] }) {
   const [focusedId, setFocusedId] = React.useState<string | null>(null);
   const [query, setQuery] = React.useState("");
   const [fs, setFs] = React.useState(false);
+  const [radar, setRadar] = React.useState(false);
   const [view, setView] = React.useState({ k: 1, tx: 0, ty: 0 });
 
   const { placed, clusters } = React.useMemo(() => layout(stars), [stars]);
+
+  // Bras spiraux logarithmiques (décor du noyau).
+  const spirals = React.useMemo(() => {
+    const cx = W / 2, cy = H / 2;
+    return [0, 1].map((arm) => {
+      const base = arm * Math.PI;
+      let d = "";
+      for (let i = 0; i <= 140; i++) {
+        const th = (i / 140) * Math.PI * 2.3;
+        const rr = 16 * Math.exp(0.255 * th);
+        const x = cx + Math.cos(th + base) * rr;
+        const y = cy + Math.sin(th + base) * rr * YF;
+        d += `${i === 0 ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)} `;
+      }
+      return d;
+    });
+  }, []);
+  const relancerCount = React.useMemo(() => placed.filter((p) => p.relancer).length, [placed]);
 
   const links = React.useMemo(() => {
     const out: { x1: number; y1: number; x2: number; y2: number }[] = [];
@@ -219,7 +239,9 @@ export function PortfolioGalaxy({ stars }: { stars: GalaxyStar[] }) {
     : [];
 
   const isFaded = (p: Placed) =>
-    (activeStage != null && (p.stage ?? "Cold") !== activeStage) || (focusedId != null && p.id !== focusedId);
+    (activeStage != null && (p.stage ?? "Cold") !== activeStage) ||
+    (focusedId != null && p.id !== focusedId) ||
+    (radar && !p.relancer);
 
   return (
     <div
@@ -244,12 +266,50 @@ export function PortfolioGalaxy({ stars }: { stars: GalaxyStar[] }) {
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
+        <defs>
+          <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="hsl(255 95% 88%)" stopOpacity="0.95" />
+            <stop offset="30%" stopColor="hsl(255 90% 72%)" stopOpacity="0.55" />
+            <stop offset="70%" stopColor="hsl(265 85% 62%)" stopOpacity="0.18" />
+            <stop offset="100%" stopColor="hsl(265 85% 62%)" stopOpacity="0" />
+          </radialGradient>
+          <linearGradient id="radarSweep" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="hsl(150 80% 55%)" stopOpacity="0" />
+            <stop offset="100%" stopColor="hsl(150 80% 55%)" stopOpacity="0.28" />
+          </linearGradient>
+        </defs>
+
         <g transform={`translate(${view.tx} ${view.ty}) scale(${view.k})`}>
           {dust.map((d, i) => (
             <circle key={"dust" + i} cx={d.x} cy={d.y} r={d.r} fill="white" opacity={d.o}>
               <animate attributeName="opacity" values={`${d.o};${d.o * 0.25};${d.o}`} dur={`${3 + d.d}s`} repeatCount="indefinite" />
             </circle>
           ))}
+
+          {/* Bras spiraux */}
+          {spirals.map((d, i) => (
+            <path key={"sp" + i} d={d} fill="none" stroke="hsl(255 80% 70% / 0.10)" strokeWidth={1.2} strokeLinecap="round" />
+          ))}
+
+          {/* Noyau galactique pulsant */}
+          <g transform={`translate(${W / 2} ${H / 2})`}>
+            <circle r={140} fill="url(#coreGlow)">
+              <animate attributeName="r" values="130;152;130" dur="6s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.8;1;0.8" dur="6s" repeatCount="indefinite" />
+            </circle>
+            <circle r={9} fill="white" opacity={0.95} style={{ filter: "drop-shadow(0 0 12px hsl(255 95% 85%))" }}>
+              <animate attributeName="r" values="7;11;7" dur="3.5s" repeatCount="indefinite" />
+            </circle>
+          </g>
+
+          {/* Faisceau radar */}
+          {radar && (
+            <g transform={`translate(${W / 2} ${H / 2})`} style={{ pointerEvents: "none" }}>
+              <animateTransform attributeName="transform" type="rotate" additive="sum" from="0" to="360" dur="4s" repeatCount="indefinite" />
+              <path d={`M0 0 L560 -150 A580 580 0 0 1 560 150 Z`} fill="url(#radarSweep)" opacity={0.6} />
+              <line x1={0} y1={0} x2={580} y2={0} stroke="hsl(150 85% 60%)" strokeWidth={1.4} opacity={0.7} />
+            </g>
+          )}
 
           {links.map((l, i) => (
             <line key={"l" + i} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke="hsl(250 80% 70% / 0.10)" strokeWidth={0.8} />
@@ -278,6 +338,10 @@ export function PortfolioGalaxy({ stars }: { stars: GalaxyStar[] }) {
               >
                 {(isFocus || isHover) && (
                   <circle r={p.r + 9} fill="none" stroke="white" strokeWidth={1} opacity={0.7} className="animate-glow-pulse" />
+                )}
+                {radar && p.relancer && (
+                  <circle r={p.r + 7} fill="none" stroke="hsl(150 85% 58%)" strokeWidth={1.6} className="animate-glow-pulse"
+                    style={{ filter: "drop-shadow(0 0 6px hsl(150 85% 55%))" }} />
                 )}
                 <circle r={p.r * 2.6} fill={`hsl(${p.color} / 0.16)`} style={{ filter: "blur(6px)" }}>
                   <animate attributeName="r" from="0" to={p.r * 2.6} begin={`${i * 0.02}s`} dur="0.7s" fill="freeze" />
@@ -365,6 +429,18 @@ export function PortfolioGalaxy({ stars }: { stars: GalaxyStar[] }) {
 
       {/* Contrôles */}
       <div className="absolute right-3 top-3 flex flex-col gap-1.5">
+        <button
+          type="button"
+          aria-label="Mode radar — comptes à relancer"
+          onClick={() => setRadar((s) => !s)}
+          className={`flex h-8 w-8 items-center justify-center rounded-lg border backdrop-blur-md transition-all ${
+            radar
+              ? "border-emerald-400/60 bg-emerald-500/20 text-emerald-300"
+              : "border-border/60 bg-background/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
+          }`}
+        >
+          <Radar className="h-4 w-4" />
+        </button>
         {[
           { icon: ZoomIn, fn: () => zoomAt(W / 2, H / 2, 1.25), label: "Zoom avant" },
           { icon: ZoomOut, fn: () => zoomAt(W / 2, H / 2, 1 / 1.25), label: "Zoom arrière" },
@@ -377,6 +453,13 @@ export function PortfolioGalaxy({ stars }: { stars: GalaxyStar[] }) {
           </button>
         ))}
       </div>
+
+      {/* Bandeau radar */}
+      {radar && (
+        <div className="absolute left-1/2 top-3 -translate-x-1/2 rounded-full border border-emerald-400/40 bg-emerald-500/15 px-3 py-1 text-[11px] font-medium text-emerald-300 backdrop-blur-md">
+          ◎ Radar actif · {relancerCount} compte{relancerCount > 1 ? "s" : ""} à relancer
+        </div>
+      )}
 
       {/* Légende = filtres */}
       <div className="absolute bottom-3 left-3 flex flex-wrap gap-1.5 rounded-lg border border-border/50 bg-background/50 px-2 py-2 backdrop-blur-md">

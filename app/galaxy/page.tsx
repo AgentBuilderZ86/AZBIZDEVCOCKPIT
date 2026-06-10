@@ -23,6 +23,11 @@ export default async function GalaxyPage() {
     stage: c.stage,
     score: c.scoreAdilStar,
     arr: c.arrPondere,
+    // « À relancer » : dormant, ou froid/à prospecter — révélé par le mode radar.
+    relancer:
+      c.statutRelation === "Dormante" ||
+      c.statutRelation === "À prospecter" ||
+      c.stage === "Cold",
   }));
 
   return (
