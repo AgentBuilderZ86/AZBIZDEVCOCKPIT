@@ -210,3 +210,61 @@
     color: hsl(var(--foreground));
   }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Couche de compatibilité DARK
+   Neutralise les couleurs claires codées en dur dans les pages historiques
+   (bg-white, slate/gray-50, texte slate-700…) → lisibilité en mode sombre.
+   Hors @layer = priorité maximale, scopé à .dark uniquement.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Fonds blancs / quasi-blancs → carte sombre */
+.dark .bg-white,
+.dark [class*="bg-white/"] {
+  background-color: hsl(var(--card) / 0.72);
+}
+
+/* Panneaux gris clairs → secondaire/muted sombre */
+.dark .bg-slate-50, .dark .bg-slate-100, .dark .bg-slate-200,
+.dark .bg-gray-50, .dark .bg-gray-100, .dark .bg-gray-200,
+.dark .bg-zinc-50, .dark .bg-zinc-100, .dark .bg-neutral-50, .dark .bg-neutral-100 {
+  background-color: hsl(var(--secondary));
+}
+.dark [class*="bg-slate-50/"], .dark [class*="bg-slate-100/"],
+.dark [class*="bg-gray-50/"], .dark [class*="bg-muted/"] {
+  background-color: hsl(var(--muted) / 0.45);
+}
+
+/* Bordures claires → bordure token */
+.dark .border-slate-200, .dark .border-slate-100,
+.dark .border-gray-200, .dark .border-gray-100, .dark .border-zinc-200 {
+  border-color: hsl(var(--border));
+}
+
+/* Texte neutre foncé → clair lisible */
+.dark .text-slate-900, .dark .text-slate-800, .dark .text-slate-700, .dark .text-slate-600,
+.dark .text-gray-900, .dark .text-gray-800, .dark .text-gray-700, .dark .text-gray-600,
+.dark .text-zinc-900, .dark .text-zinc-800, .dark .text-zinc-700, .dark .text-zinc-600,
+.dark .text-neutral-900, .dark .text-neutral-800, .dark .text-neutral-700 {
+  color: hsl(var(--foreground));
+}
+.dark .text-slate-500, .dark .text-slate-400,
+.dark .text-gray-500, .dark .text-gray-400,
+.dark .text-zinc-500, .dark .text-zinc-400 {
+  color: hsl(var(--muted-foreground));
+}
+
+/* Panneaux colorés clairs (xxx-50/100) → teinte translucide cohérente en sombre */
+.dark .bg-blue-50, .dark .bg-blue-100, .dark .bg-sky-50, .dark .bg-indigo-50, .dark .bg-indigo-100 { background-color: hsl(220 90% 60% / 0.13); }
+.dark .bg-emerald-50, .dark .bg-emerald-100, .dark .bg-green-50, .dark .bg-green-100, .dark .bg-teal-50 { background-color: hsl(155 65% 50% / 0.13); }
+.dark .bg-amber-50, .dark .bg-amber-100, .dark .bg-orange-50, .dark .bg-orange-100, .dark .bg-yellow-50 { background-color: hsl(38 92% 55% / 0.13); }
+.dark .bg-red-50, .dark .bg-red-100, .dark .bg-rose-50, .dark .bg-rose-100 { background-color: hsl(0 80% 60% / 0.13); }
+.dark .bg-violet-50, .dark .bg-violet-100, .dark .bg-purple-50, .dark .bg-purple-100, .dark .bg-fuchsia-50 { background-color: hsl(270 80% 62% / 0.15); }
+
+/* Texte coloré foncé → version claire lisible sur teinte translucide */
+.dark .text-blue-700, .dark .text-blue-800, .dark .text-blue-900, .dark .text-sky-700, .dark .text-indigo-700, .dark .text-indigo-800 { color: hsl(215 92% 76%); }
+.dark .text-emerald-700, .dark .text-emerald-800, .dark .text-green-700, .dark .text-green-800, .dark .text-teal-700 { color: hsl(155 72% 70%); }
+.dark .text-amber-700, .dark .text-amber-800, .dark .text-orange-700, .dark .text-orange-800, .dark .text-yellow-700 { color: hsl(40 92% 70%); }
+.dark .text-red-700, .dark .text-red-800, .dark .text-rose-700, .dark .text-rose-800 { color: hsl(0 86% 77%); }
+.dark .text-violet-700, .dark .text-violet-800, .dark .text-purple-700, .dark .text-purple-800 { color: hsl(270 86% 81%); }
+
