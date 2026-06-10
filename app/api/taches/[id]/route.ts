@@ -7,10 +7,8 @@ import { isUuid } from "@/lib/validation";
 export const dynamic = "force-dynamic";
 
 /** PATCH — met à jour le statut (ou édite) une tâche. */
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   if (!isIntelligenceEnabled()) {
     return NextResponse.json({ error: "Intelligence inactive." }, { status: 503 });
   }
@@ -77,10 +75,8 @@ export async function PATCH(
 }
 
 /** DELETE — supprime une tâche manuelle. */
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   if (!isIntelligenceEnabled()) {
     return NextResponse.json({ error: "Intelligence inactive." }, { status: 503 });
   }

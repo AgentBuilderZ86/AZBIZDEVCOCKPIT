@@ -49,7 +49,8 @@ const URGENCY_STYLES: Record<string, string> = {
   low: "border-slate-200 bg-slate-50",
 };
 
-export default async function ComptePage({ params }: { params: { id: string } }) {
+export default async function ComptePage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   let data: Compte360 | null = null;
   let error: string | null = null;
 

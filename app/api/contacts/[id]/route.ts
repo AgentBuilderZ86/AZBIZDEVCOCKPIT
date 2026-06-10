@@ -23,10 +23,8 @@ function strOrNull(v: unknown): string | null | undefined {
 }
 
 /** PATCH — met à jour les champs d'un contact existant dans Notion. */
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;

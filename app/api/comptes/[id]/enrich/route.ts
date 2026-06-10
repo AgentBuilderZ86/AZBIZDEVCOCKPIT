@@ -12,10 +12,8 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 /** POST → Phase 1 sync + trigger Phase 2 async, retourne jobId pour polling. */
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     if (!(await checkRateLimit(`${clientIp(req)}:enrich`))) {
       return NextResponse.json({ error: "Trop de requêtes." }, { status: 429 });
@@ -78,10 +76,8 @@ export async function POST(
 }
 
 /** PUT → applique le sous-ensemble validé par l'utilisateur (write-back Notion). */
-export async function PUT(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const payload = (await req.json()) as EnrichmentApply;
     const result = await applyEnrichment(params.id, payload);

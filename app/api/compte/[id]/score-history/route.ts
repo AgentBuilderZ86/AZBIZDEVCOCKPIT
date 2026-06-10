@@ -6,10 +6,8 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 /** Retourne les 30 derniers points de score + dernières features. */
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   if (!isIntelligenceEnabled()) {
     return NextResponse.json({ error: "Intelligence désactivée." }, { status: 503 });
   }

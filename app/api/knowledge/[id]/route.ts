@@ -4,10 +4,8 @@ import { deleteKnowledgeDoc } from "@/lib/intelligence/knowledge";
 
 export const dynamic = "force-dynamic";
 
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   if (!isIntelligenceEnabled()) {
     return NextResponse.json({ error: "DATABASE_URL absente." }, { status: 503 });
   }

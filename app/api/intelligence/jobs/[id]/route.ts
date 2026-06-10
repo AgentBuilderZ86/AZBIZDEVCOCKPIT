@@ -5,10 +5,8 @@ import { isIntelligenceEnabled } from "@/lib/intelligence/config";
 export const dynamic = "force-dynamic";
 export const maxDuration = 10;
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   if (!isIntelligenceEnabled()) {
     return NextResponse.json(
       { error: "Couche Intelligence inactive (DATABASE_URL)." },

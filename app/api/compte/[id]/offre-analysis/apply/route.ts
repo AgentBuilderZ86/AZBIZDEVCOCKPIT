@@ -8,10 +8,8 @@ import type { OffreMappingRow } from "@/lib/types";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   if (!isIntelligenceEnabled()) {
     return NextResponse.json(
       { error: "Couche Intelligence inactive (DATABASE_URL)." },

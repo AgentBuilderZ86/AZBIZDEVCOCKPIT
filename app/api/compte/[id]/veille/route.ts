@@ -10,10 +10,8 @@ export const runtime = "nodejs";
 export const maxDuration = 120;
 
 /** POST — veille web sur le compte (sync ou ?async=1). */
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   if (!isIntelligenceEnabled()) {
     return NextResponse.json(
       { error: "DATABASE_URL absente — veille inactive." },

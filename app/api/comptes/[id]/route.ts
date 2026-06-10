@@ -11,10 +11,8 @@ const PatchSchema = z
   .object({ _action: z.literal("archive").optional() })
   .catchall(z.union([z.string(), z.number(), z.boolean(), z.null()]));
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const compte = await getCompte(params.id);
     return NextResponse.json({ compte });
@@ -23,10 +21,8 @@ export async function GET(
   }
 }
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const parsed = PatchSchema.safeParse(await req.json());
     if (!parsed.success) {
