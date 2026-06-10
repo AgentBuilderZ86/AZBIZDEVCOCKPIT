@@ -136,10 +136,10 @@ export function PartnerReviewClient({ comptes, opportunites }: Props) {
   }
 
   return (
-    <div className="space-y-5 print:space-y-4">
+    <div className="space-y-6 print:space-y-4">
 
       {/* ---- Vue switcher ---- */}
-      <div className="rounded-xl border bg-white/80 backdrop-blur-sm p-1.5 flex gap-1" style={{ boxShadow: "0 1px 3px hsl(220 20% 0% / 0.05)" }}>
+      <div className="bento-card p-1.5 flex gap-1">
         {([
           { id: "moi",     icon: User,      label: "Moi — TEC/CIO",   sub: "Mes deals directs" },
           { id: "cabinet", icon: Building2, label: "Cabinet complet", sub: "Tous les deals" },
@@ -165,7 +165,7 @@ export function PartnerReviewClient({ comptes, opportunites }: Props) {
       </div>
 
       {/* ---- Status / actions bar ---- */}
-      <div className="flex items-center justify-between gap-4 rounded-xl border bg-white/80 backdrop-blur-sm px-4 py-3" style={{ boxShadow: "0 1px 3px hsl(220 20% 0% / 0.05)" }}>
+      <div className="flex items-center justify-between gap-4 bento-card px-4 py-3">
         <div className="flex items-center gap-3">
           <span className="text-sm font-medium text-muted-foreground">Revue {today}</span>
           <button
@@ -242,7 +242,7 @@ export function PartnerReviewClient({ comptes, opportunites }: Props) {
       )}
 
       {/* ---- Pipeline par stage ---- */}
-      <section className="rounded-xl border bg-white/80 backdrop-blur-sm p-5" style={{ boxShadow: "0 1px 3px hsl(220 20% 0% / 0.05)" }}>
+      <section className="bento-card p-5">
         <h2 className="mb-4 text-sm font-bold tracking-tight">
           Pipeline par stage
           {view === "mixte" && <span className="ml-2 text-xs font-normal text-muted-foreground">— cabinet complet</span>}
@@ -261,7 +261,7 @@ export function PartnerReviewClient({ comptes, opportunites }: Props) {
       </section>
 
       {/* ---- Points d'escalade ---- */}
-      <section className="rounded-xl border bg-white/80 backdrop-blur-sm p-5" style={{ boxShadow: "0 1px 3px hsl(220 20% 0% / 0.05)" }}>
+      <section className="bento-card p-5">
         <div className="mb-4 flex items-center gap-2">
           <AlertCircle className="h-4 w-4 text-orange-500" />
           <h2 className="text-sm font-bold tracking-tight">Points d&apos;escalade Partners</h2>
@@ -287,7 +287,7 @@ export function PartnerReviewClient({ comptes, opportunites }: Props) {
       </section>
 
       {/* ---- Comptes Core Advisory ---- */}
-      <section className="rounded-xl border bg-white/80 backdrop-blur-sm p-5" style={{ boxShadow: "0 1px 3px hsl(220 20% 0% / 0.05)" }}>
+      <section className="bento-card p-5">
         <div className="mb-4 flex items-center gap-2">
           <Target className="h-4 w-4 text-blue-500" />
           <h2 className="text-sm font-bold tracking-tight">Comptes Core Advisory</h2>
@@ -319,7 +319,7 @@ export function PartnerReviewClient({ comptes, opportunites }: Props) {
 
       {/* ---- Cross-sell traction (cabinet + mixte seulement) ---- */}
       {view !== "moi" && (
-        <section className="rounded-xl border bg-white/80 backdrop-blur-sm p-5" style={{ boxShadow: "0 1px 3px hsl(220 20% 0% / 0.05)" }}>
+        <section className="bento-card p-5">
           <div className="mb-4 flex items-center gap-2">
             <Users className="h-4 w-4 text-emerald-500" />
             <h2 className="text-sm font-bold tracking-tight">Traction Cross-sell</h2>
@@ -352,7 +352,7 @@ export function PartnerReviewClient({ comptes, opportunites }: Props) {
       )}
 
       {/* ---- Notes de préparation ---- */}
-      <section className="rounded-xl border bg-white/80 backdrop-blur-sm p-5 print:hidden" style={{ boxShadow: "0 1px 3px hsl(220 20% 0% / 0.05)" }}>
+      <section className="bento-card p-5 print:hidden">
         <h2 className="mb-3 text-sm font-bold tracking-tight">Notes de préparation</h2>
         <textarea
           value={notes}
@@ -543,7 +543,7 @@ function PanelShell({
   return (
     <section
       className={cn("rounded-xl border backdrop-blur-sm overflow-hidden", borderCls)}
-      style={{ boxShadow: "0 1px 3px hsl(220 20% 0% / 0.05)" }}
+     
     >
       <div className={cn("flex items-center justify-between px-5 py-3 border-b", borderCls)}>
         <div className="flex items-center gap-2">
@@ -645,11 +645,11 @@ function MixtePanel({
           <p className={cn("text-3xl font-bold tracking-tight", cm.val)}>{pipeline.toFixed(0)}k€</p>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <div className="rounded-lg bg-white/60 p-3">
+          <div className="rounded-lg border border-border/60 bg-card/50 p-3">
             <p className="text-[10px] text-muted-foreground">Revenue Won</p>
             <p className="text-lg font-bold">{won.toFixed(0)}k€</p>
           </div>
-          <div className="rounded-lg bg-white/60 p-3">
+          <div className="rounded-lg border border-border/60 bg-card/50 p-3">
             <p className="text-[10px] text-muted-foreground">Deals actifs</p>
             <p className="text-lg font-bold">{active} <span className="text-xs font-normal text-muted-foreground">({wonCount} Won)</span></p>
           </div>
