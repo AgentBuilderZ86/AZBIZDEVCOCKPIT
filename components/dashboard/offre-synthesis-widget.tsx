@@ -6,18 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import type { OffreSynthesisPayload, CoverageIndicator } from "@/lib/types";
+import { HotTopicsBubbles } from "@/components/dashboard/hot-topics-bubbles";
 
 function coverageStyle(c: CoverageIndicator) {
   if (c === "rag_indexed") return { label: "RAG", className: "bg-green-50 text-green-700 border-green-200" };
   if (c === "expertise_sia") return { label: "Expertise", className: "bg-blue-50 text-blue-700 border-blue-200" };
   return { label: "Gap", className: "bg-red-50 text-red-700 border-red-200" };
-}
-
-function topicWeight(freq: number, max: number) {
-  const r = max > 0 ? freq / max : 0;
-  if (r > 0.65) return "text-sm font-semibold text-foreground";
-  if (r > 0.35) return "text-xs font-medium text-foreground/80";
-  return "text-xs text-muted-foreground";
 }
 
 export function OffreSynthesisWidget() {
@@ -63,8 +57,6 @@ export function OffreSynthesisWidget() {
     );
   }
 
-  const maxFreq = synthesis.hotTopics[0]?.frequency ?? 1;
-
   async function handleBulkApply() {
     setBulkLoading(true);
     setBulkResult(null);
@@ -93,7 +85,7 @@ export function OffreSynthesisWidget() {
     <>
     <div className="bento-card overflow-hidden">
       {/* Horizontal 3-panel layout */}
-      <div className="grid grid-cols-1 divide-y sm:grid-cols-3 sm:divide-x sm:divide-y-0 divide-border/60">
+      <div className="grid grid-cols-1 divide-y sm:grid-cols-2 sm:divide-x sm:divide-y-0 divide-border/60">
 
         {/* Panel 1 — KPI metrics */}
         <div className="flex flex-col gap-3 p-4">
@@ -150,21 +142,15 @@ export function OffreSynthesisWidget() {
           </div>
         </div>
 
-        {/* Panel 3 — Topics chauds (tag cloud) */}
-        <div className="p-4">
-          <p className="mb-2 label-muted">Topics chauds</p>
-          <div className="flex flex-wrap gap-1.5">
-            {synthesis.hotTopics.slice(0, 12).map(({ topic, frequency }) => (
-              <span
-                key={topic}
-                title={`${frequency} occurrence${frequency > 1 ? "s" : ""}`}
-                className={`inline-flex items-center rounded-full border bg-muted/40 px-2 py-0.5 transition-colors hover:bg-primary/10 hover:border-primary/20 cursor-default ${topicWeight(frequency, maxFreq)}`}
-              >
-                {topic}
-              </span>
-            ))}
-          </div>
+      </div>
+
+      {/* Topics chauds — bulles pondérées */}
+      <div className="border-t border-border/60 p-4">
+        <div className="mb-2 flex items-baseline justify-between gap-2">
+          <p className="label-muted">Topics chauds</p>
+          <p className="text-[11px] text-muted-foreground/70">Taille = récurrence · couleur = chaleur</p>
         </div>
+        <HotTopicsBubbles topics={synthesis.hotTopics} />
       </div>
     </div>
 
