@@ -83,23 +83,15 @@ export default async function HomePage() {
       {/* Header */}
       <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Cockpit commercial
+          <h1 className="font-display text-3xl font-bold tracking-tight text-foreground">
+            Cockpit <span className="text-gradient">commercial</span>
           </h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
             Vision unifiée du portefeuille · {total} comptes · {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            asChild size="sm"
-            className="gap-1.5 font-medium"
-            style={{
-              background: "linear-gradient(135deg, hsl(231 72% 42%) 0%, hsl(231 72% 32%) 100%)",
-              boxShadow: "0 1px 3px hsl(231 72% 20% / 0.3), inset 0 1px 0 hsl(231 50% 60% / 0.2)",
-              border: "1px solid hsl(231 72% 30%)",
-            }}
-          >
+          <Button asChild size="sm" className="gap-1.5 font-medium">
             <Link href="/comptes">Plan de comptes <ArrowRight className="h-3.5 w-3.5" /></Link>
           </Button>
           <Button asChild variant="outline" size="sm" className="gap-1.5 font-medium">
@@ -130,8 +122,8 @@ export default async function HomePage() {
               {/* ARR Hero */}
               <div className="bento-card p-6">
                 <p className="label-muted">Pipeline ARR pondéré</p>
-                <p className="mt-2 text-4xl font-bold tracking-tighter">
-                  {arrTotal > 0 ? arrTotal.toLocaleString("fr") : "—"}
+                <p className="mt-2 font-display text-4xl font-bold tracking-tight">
+                  <span className="text-gradient">{arrTotal > 0 ? arrTotal.toLocaleString("fr") : "—"}</span>
                   <span className="ml-1.5 text-base font-medium text-muted-foreground">k€</span>
                 </p>
 
