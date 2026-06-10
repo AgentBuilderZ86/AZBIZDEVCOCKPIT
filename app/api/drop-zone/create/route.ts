@@ -10,6 +10,7 @@ import { namesMatch } from "@/lib/enrichment-match";
 import { isIntelligenceEnabled } from "@/lib/intelligence/config";
 import { getDb } from "@/lib/intelligence/db";
 import { appendAccountJournal } from "@/lib/intelligence/journal";
+import { z } from "zod";
 import type { OppStage } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -18,37 +19,46 @@ function str(v: unknown): string {
   return typeof v === "string" ? v : "";
 }
 
-interface BatchItem {
-  kind: string;
-  fields: Record<string, string>;
-}
+const BodySchema = z.object({
+  compteId: z.string().max(200).optional(),
+  compteNom: z.string().max(300).optional(),
+  createCompteNom: z.string().max(300).optional(),
+  items: z
+    .array(
+      z.object({
+        kind: z.enum(["contact", "opportunite", "tache", "note"]),
+        fields: z.record(z.string(), z.string().max(5000)).default({}),
+      })
+    )
+    .min(1)
+    .max(50),
+});
+
+type BatchItem = z.infer<typeof BodySchema>["items"][number];
 
 /**
  * POST { compteId?, compteNom?, createCompteNom?, items: BatchItem[] }
  * Crée en lot les objets validés par la Drop Zone.
  */
 export async function POST(req: NextRequest) {
-  let body: Record<string, unknown>;
+  let parsed: z.infer<typeof BodySchema>;
   try {
-    body = (await req.json()) as Record<string, unknown>;
+    parsed = BodySchema.parse(await req.json());
   } catch {
-    return NextResponse.json({ error: "Body JSON invalide." }, { status: 400 });
+    return NextResponse.json({ error: "Requête invalide." }, { status: 400 });
   }
 
-  const items = Array.isArray(body.items) ? (body.items as BatchItem[]) : [];
-  if (items.length === 0) {
-    return NextResponse.json({ error: "Aucun objet à créer." }, { status: 400 });
-  }
+  const items: BatchItem[] = parsed.items;
 
-  let compteId = str(body.compteId);
-  let compteNom = str(body.compteNom);
+  let compteId = str(parsed.compteId);
+  let compteNom = str(parsed.compteNom);
 
   const created: string[] = [];
   const errors: string[] = [];
 
   try {
     // Création optionnelle d'un nouveau compte à la volée.
-    const newCompteNom = str(body.createCompteNom).trim();
+    const newCompteNom = str(parsed.createCompteNom).trim();
     if (!compteId && newCompteNom) {
       const compte = await createCompte({ compte: newCompteNom });
       compteId = compte.id;

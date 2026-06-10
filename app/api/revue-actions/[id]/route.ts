@@ -3,6 +3,7 @@ import { isIntelligenceEnabled } from "@/lib/intelligence/config";
 import { getDb } from "@/lib/intelligence/db";
 import { appendAccountJournal } from "@/lib/intelligence/journal";
 import { updateContactDerniereInteraction } from "@/lib/notion";
+import { isUuid } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,9 @@ export async function PATCH(
 ) {
   if (!isIntelligenceEnabled()) {
     return NextResponse.json({ error: "Intelligence inactive." }, { status: 503 });
+  }
+  if (!isUuid(params.id)) {
+    return NextResponse.json({ error: "Identifiant invalide." }, { status: 400 });
   }
 
   let body: Record<string, unknown>;

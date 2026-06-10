@@ -7,7 +7,16 @@ import { parseAoFile } from "@/lib/intelligence/parse-ao-excel";
 export const dynamic = "force-dynamic";
 
 const MAX_BYTES = 5 * 1024 * 1024; // 5 Mo
-const ALLOWED_EXT = new Set(["xlsx", "xls", "csv"]);
+const ALLOWED_EXT = new Set(["xlsx", "csv"]);
+const ALLOWED_MIME = new Set([
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-excel",
+  "text/csv",
+  "application/csv",
+  "text/plain",
+  "application/octet-stream", // certains navigateurs n'envoient pas de type fiable
+  "",
+]);
 
 export async function POST(req: NextRequest) {
   if (!isIntelligenceEnabled()) {
@@ -32,15 +41,21 @@ export async function POST(req: NextRequest) {
   const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
   if (!ALLOWED_EXT.has(ext)) {
     return NextResponse.json(
-      { error: "Format non supporté. Acceptés : xlsx, xls, csv." },
+      { error: "Format non supporté. Acceptés : xlsx, csv." },
+      { status: 400 }
+    );
+  }
+  if (!ALLOWED_MIME.has((file.type ?? "").toLowerCase())) {
+    return NextResponse.json(
+      { error: "Type de fichier non autorisé." },
       { status: 400 }
     );
   }
 
-  let rows: ReturnType<typeof parseAoFile>;
+  let rows: Awaited<ReturnType<typeof parseAoFile>>;
   try {
     const buffer = await file.arrayBuffer();
-    rows = parseAoFile(buffer, file.name);
+    rows = await parseAoFile(buffer, file.name);
   } catch (err) {
     return NextResponse.json(
       { error: `Erreur de parsing : ${err instanceof Error ? err.message : "inconnu"}` },

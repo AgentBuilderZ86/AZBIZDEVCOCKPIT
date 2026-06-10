@@ -8,7 +8,9 @@
   SECRETS_SCAN_OMIT_PATHS = ".env.example,README.md"
   # EMBEDDINGS_MODEL (ex. voyage-3) est un nom de modèle public, pas un secret :
   # Next.js l'inclut dans le bundle serveur → faux positif du scan.
-  SECRETS_SCAN_OMIT_KEYS = "EMBEDDINGS_MODEL,VOYAGE_EMBED_BATCH_SIZE,VOYAGE_EMBED_BATCH_DELAY_MS"
+  # NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY est une clé PUBLIQUE (publishable) par design :
+  # Next.js l'inline dans le bundle client → faux positif attendu (≠ CLERK_SECRET_KEY).
+  SECRETS_SCAN_OMIT_KEYS = "EMBEDDINGS_MODEL,VOYAGE_EMBED_BATCH_SIZE,VOYAGE_EMBED_BATCH_DELAY_MS,NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"
 
 # Runtime Next.js officiel de Netlify (App Router, API routes, SSR).
 [[plugins]]

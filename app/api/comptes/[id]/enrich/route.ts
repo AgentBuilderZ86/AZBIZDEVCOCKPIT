@@ -4,6 +4,7 @@ import { enqueueJob } from "@/lib/intelligence/jobs";
 import { isIntelligenceEnabled } from "@/lib/intelligence/config";
 import { integrations } from "@/lib/config";
 import { JOB_ENRICH_INTEL } from "@/lib/intelligence/job-runner";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit-upstash";
 import type { EnrichmentApply } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -12,10 +13,13 @@ export const maxDuration = 30;
 
 /** POST → Phase 1 sync + trigger Phase 2 async, retourne jobId pour polling. */
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
+    if (!(await checkRateLimit(`${clientIp(req)}:enrich`))) {
+      return NextResponse.json({ error: "Trop de requêtes." }, { status: 429 });
+    }
     if (!isIntelligenceEnabled()) {
       return NextResponse.json(
         { error: "DATABASE_URL absente — couche Intelligence inactive." },

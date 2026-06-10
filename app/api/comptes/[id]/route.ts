@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { getCompte, updateCompte, archiveCompte } from "@/lib/notion";
 import type { CompteUpdate } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+// Garde de forme : objet plat (pas de fonctions/structures profondes injectées),
+// `_action` limité à "archive". Les champs métier sont validés en aval par Notion.
+const PatchSchema = z
+  .object({ _action: z.literal("archive").optional() })
+  .catchall(z.union([z.string(), z.number(), z.boolean(), z.null()]));
 
 export async function GET(
   _req: NextRequest,
@@ -21,14 +28,17 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const body = (await req.json()) as CompteUpdate & { _action?: "archive" };
-    if (body._action === "archive") {
+    const parsed = PatchSchema.safeParse(await req.json());
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Requête invalide." }, { status: 400 });
+    }
+    if (parsed.data._action === "archive") {
       const compte = await archiveCompte(params.id);
       return NextResponse.json({ compte });
     }
-    const { _action, ...update } = body;
+    const { _action, ...update } = parsed.data;
     void _action;
-    const compte = await updateCompte(params.id, update);
+    const compte = await updateCompte(params.id, update as CompteUpdate);
     return NextResponse.json({ compte });
   } catch (err) {
     return errorResponse(err);

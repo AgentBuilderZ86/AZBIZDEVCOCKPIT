@@ -5,6 +5,7 @@ import {
   intelligenceConfig,
 } from "@/lib/intelligence/config";
 import { pingDb } from "@/lib/intelligence/db";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit-upstash";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -13,6 +14,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  if (!(await checkRateLimit(`${clientIp(req)}:copilot`))) {
+    return NextResponse.json({ error: "Trop de requêtes." }, { status: 429 });
+  }
   if (!isIntelligenceEnabled()) {
     return NextResponse.json(
       {
