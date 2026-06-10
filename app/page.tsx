@@ -10,6 +10,7 @@ import {
   BookMarked,
   TrendingUp,
   Star,
+  Orbit,
 } from "lucide-react";
 import { listComptes } from "@/lib/notion";
 import { Button } from "@/components/ui/button";
@@ -92,6 +93,9 @@ export default async function HomePage() {
         </div>
         <div className="flex items-center gap-2">
           <Button asChild size="sm" className="gap-1.5 font-medium">
+            <Link href="/galaxy"><Orbit className="h-3.5 w-3.5" /> Galaxie</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm" className="gap-1.5 font-medium">
             <Link href="/comptes">Plan de comptes <ArrowRight className="h-3.5 w-3.5" /></Link>
           </Button>
           <Button asChild variant="outline" size="sm" className="gap-1.5 font-medium">

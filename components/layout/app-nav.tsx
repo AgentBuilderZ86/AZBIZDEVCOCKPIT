@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, Home, Building2, BookOpen, FileDown, Map, BookMarked, Users, FileSearch, ClipboardCheck } from "lucide-react";
+import { BarChart3, Home, Building2, BookOpen, FileDown, Map, BookMarked, Users, FileSearch, ClipboardCheck, Orbit } from "lucide-react";
 import { UserButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { NavLink } from "./nav-link";
@@ -33,6 +33,7 @@ export function AppNav() {
         {/* Liens nav */}
         <div className="flex items-center gap-0.5 overflow-x-auto">
           <NavLink href="/" label="Cockpit" icon={Home} />
+          <NavLink href="/galaxy" label="Galaxie" icon={Orbit} />
           <NavLink href="/comptes" label="Plan de comptes" icon={Building2} />
           <NavLink href="/connaissance" label="Connaissance" icon={BookOpen} />
           <NavLink href="/roadmap" label="Roadmap" icon={Map} />
