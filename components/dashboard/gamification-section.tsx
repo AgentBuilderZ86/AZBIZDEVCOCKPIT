@@ -99,10 +99,10 @@ export function GamificationSection({
   const isOk = pct >= 50;
 
   const gradientClass = isGood
-    ? "from-emerald-50/70 to-green-50/40 border-emerald-200/60"
+    ? "bg-emerald-500/10 border-emerald-400/40"
     : isOk
-      ? "from-amber-50/70 to-orange-50/40 border-amber-200/60"
-      : "from-red-50/50 to-rose-50/30 border-red-200/50";
+      ? "bg-amber-500/10 border-amber-400/40"
+      : "bg-red-500/10 border-red-400/40";
 
   const barClass = isGood
     ? "bg-emerald-500"
@@ -123,7 +123,7 @@ export function GamificationSection({
       {/* Cadence card */}
       <div
         className={cn(
-          "bento-card p-5 bg-gradient-to-br",
+          "bento-card p-5",
           gradientClass
         )}
       >
