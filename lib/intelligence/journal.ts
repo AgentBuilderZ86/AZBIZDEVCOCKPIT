@@ -63,6 +63,61 @@ export async function appendAccountJournal(
   return rows[0]?.id ?? null;
 }
 
+/** Flux global (tous comptes) — pour le Live Intelligence Feed. */
+export async function listPortfolioFeed(opts?: {
+  limit?: number;
+  sinceDays?: number;
+  types?: JournalEventType[];
+}): Promise<
+  Array<{
+    id: string;
+    accountId: string | null;
+    accountUrl: string;
+    eventType: string;
+    eventDate: Date;
+    payload: Record<string, unknown>;
+    source: string;
+  }>
+> {
+  if (!isIntelligenceEnabled()) return [];
+
+  const limit = Math.min(300, Math.max(1, opts?.limit ?? 120));
+  const sinceDays = Math.min(365, Math.max(1, opts?.sinceDays ?? 30));
+  const types = (opts?.types?.length
+    ? opts.types
+    : (["signal", "score_change", "stage_change"] as JournalEventType[])) as string[];
+
+  const db = getDb();
+  const rows = await db<
+    {
+      id: string;
+      account_url: string;
+      account_id: string | null;
+      event_type: string;
+      event_date: Date;
+      payload: Record<string, unknown>;
+      source: string;
+    }[]
+  >`
+    SELECT id, account_url, account_id, event_type, event_date, payload, source
+    FROM account_journal
+    WHERE event_type = ANY(${types})
+      AND event_date >= now() - make_interval(days => ${sinceDays})
+    ORDER BY event_date DESC
+    LIMIT ${limit}
+  `;
+
+  return rows.map((r) => ({
+    id: r.id,
+    accountId: r.account_id,
+    accountUrl: r.account_url,
+    eventType: r.event_type,
+    eventDate: r.event_date,
+    payload: r.payload ?? {},
+    source: r.source,
+  }));
+}
+
 export async function listAccountJournal(
   accountUrl: string,
   limit = 50
