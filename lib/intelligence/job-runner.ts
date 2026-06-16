@@ -5,6 +5,8 @@ import { runAccountVeille } from "./veille";
 import { buildEnrichmentData, buildEnrichmentIntel, type EnrichmentData } from "@/lib/enrichment";
 import { triggerJobWorker } from "./trigger-worker";
 import { analyzeCompteOffres } from "./offre-analysis";
+import { researchAccountProcurement } from "./procurement";
+import { researchEvents, researchAssociations } from "./networking";
 import { getDb } from "./db";
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -16,6 +18,9 @@ const JOB_ENRICH_DATA = "enrich.data";
 const JOB_ENRICH_INTEL = "enrich.intel";
 const JOB_OFFRE_ANALYSIS = "offre.analysis";
 const JOB_AO_QUALIFY = "ao.qualify";
+const JOB_PROCUREMENT_RESEARCH = "procurement.research";
+const JOB_NETWORKING_EVENTS = "networking.events";
+const JOB_NETWORKING_ASSOCIATIONS = "networking.associations";
 
 /** Traite un job réservé (appelé par /api/cron/jobs). */
 export async function runIntelligenceJob(job: IntelligenceJob): Promise<void> {
@@ -41,6 +46,15 @@ export async function runIntelligenceJob(job: IntelligenceJob): Promise<void> {
       return;
     case JOB_AO_QUALIFY:
       await runAoQualification(job);
+      return;
+    case JOB_PROCUREMENT_RESEARCH:
+      await runProcurementResearch(job);
+      return;
+    case JOB_NETWORKING_EVENTS:
+      await runNetworkingEvents(job);
+      return;
+    case JOB_NETWORKING_ASSOCIATIONS:
+      await runNetworkingAssociations(job);
       return;
     default:
       throw new Error(`Type de job inconnu : ${job.jobType}`);
@@ -228,4 +242,31 @@ Score 1-4 : AO hors périmètre Sia (secteur public pur, génie civil, IT commod
   await completeJob(job.id, { batchId, qualified });
 }
 
-export { JOB_KNOWLEDGE_INGEST, JOB_VEILLE_SCAN, JOB_ENRICH_PROPOSAL, JOB_ENRICH_DATA, JOB_ENRICH_INTEL, JOB_OFFRE_ANALYSIS, JOB_AO_QUALIFY };
+async function runProcurementResearch(job: IntelligenceJob): Promise<void> {
+  const compteId = String(job.payload.compteId ?? "").trim();
+  if (!compteId) throw new Error("Payload procurement.research : compteId requis.");
+
+  const result = await researchAccountProcurement(compteId, job.id);
+  await completeJob(job.id, {
+    compteId,
+    found: Boolean(result.emailAchats || result.fournisseurPortalUrl || result.referencementUrl),
+    confidence: result.confidence,
+  });
+}
+
+async function runNetworkingEvents(job: IntelligenceJob): Promise<void> {
+  const sector = (job.payload.sector as string | undefined) ?? null;
+  const horizonMonths = Number(job.payload.horizonMonths ?? 12);
+  const result = await researchEvents({ sector, horizonMonths }, job.id);
+  if (result.error && result.inserted === 0) throw new Error(result.error);
+  await completeJob(job.id, { inserted: result.inserted, warning: result.error });
+}
+
+async function runNetworkingAssociations(job: IntelligenceJob): Promise<void> {
+  const sector = (job.payload.sector as string | undefined) ?? null;
+  const result = await researchAssociations({ sector }, job.id);
+  if (result.error && result.inserted === 0) throw new Error(result.error);
+  await completeJob(job.id, { inserted: result.inserted, warning: result.error });
+}
+
+export { JOB_KNOWLEDGE_INGEST, JOB_VEILLE_SCAN, JOB_ENRICH_PROPOSAL, JOB_ENRICH_DATA, JOB_ENRICH_INTEL, JOB_OFFRE_ANALYSIS, JOB_AO_QUALIFY, JOB_PROCUREMENT_RESEARCH, JOB_NETWORKING_EVENTS, JOB_NETWORKING_ASSOCIATIONS };

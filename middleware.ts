@@ -13,6 +13,8 @@ import { rateLimit } from "@/lib/rate-limit";
 const isCronRoute = createRouteMatcher([
   "/api/cron(.*)",
   "/api/enrich-intel-bg",
+  "/api/procurement-bg",
+  "/api/networking-bg",
 ]);
 const isApiRoute = createRouteMatcher(["/api(.*)"]);
 const isPublicRoute = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)"]);

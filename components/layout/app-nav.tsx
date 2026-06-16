@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, Home, Building2, FileDown, Map, BookMarked, BookOpen, Users, FileSearch, ClipboardCheck, Orbit, Radio } from "lucide-react";
+import { BarChart3, Home, Building2, FileDown, Map, BookMarked, BookOpen, Users, FileSearch, ClipboardCheck, Orbit, Radio, Network } from "lucide-react";
 import { UserButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { NavLink } from "./nav-link";
@@ -36,6 +36,7 @@ export function AppNav() {
           <NavLink href="/galaxy" label="Galaxie" icon={Orbit} />
           <NavLink href="/veille" label="Veille" icon={Radio} />
           <NavLink href="/comptes" label="Comptes" icon={Building2} />
+          <NavLink href="/networking" label="Networking" icon={Network} />
           <NavLink href="/revue-partners" label="Partners" icon={Users} />
           <NavLink href="/revue-actions" label="Actions" icon={ClipboardCheck} />
         </div>

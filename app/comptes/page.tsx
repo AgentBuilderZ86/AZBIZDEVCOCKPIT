@@ -1,5 +1,6 @@
 import { listComptes } from "@/lib/notion";
 import { ComptesClient } from "@/components/comptes/comptes-client";
+import { ProcurementRunAllButton } from "@/components/comptes/procurement-run-all-button";
 import type { Compte } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +33,7 @@ export default async function ComptesPage() {
           <h1 className="text-3xl font-bold tracking-tight">Plan de comptes</h1>
           <p className="mt-1 text-sm text-muted-foreground">Édition inline — modifications répercutées dans Notion.</p>
         </div>
+        <ProcurementRunAllButton />
       </header>
 
       {error ? (

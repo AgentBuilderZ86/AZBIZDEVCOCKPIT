@@ -11,6 +11,7 @@ import { PlanBlock } from "@/components/compte/plan-block";
 import { EnrichDialog } from "@/components/compte/enrich-dialog";
 import { CompteIntelligenceAside } from "@/components/compte/compte-intelligence-aside";
 import { OffreMappingPanel } from "@/components/compte/offre-mapping-panel";
+import { ProcurementPanel } from "@/components/compte/procurement-panel";
 import { isIntelligenceEnabled, intelligenceConfig } from "@/lib/intelligence/config";
 import { getDb } from "@/lib/intelligence/db";
 import { valueBadgeClass } from "@/lib/compte-ui";
@@ -264,6 +265,13 @@ export default async function ComptePage(props: { params: Promise<{ id: string }
                 <p className="whitespace-pre-wrap rounded-md border bg-muted/30 p-3 text-sm">{compte.notes}</p>
               </div>
             )}
+          </div>
+          <hr className="border-dashed" />
+          <div>
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Référencement Achats
+            </h2>
+            <ProcurementPanel compteId={compte.id} intelligenceOn={intelligenceOn} />
           </div>
           <hr className="border-dashed" />
           <div>

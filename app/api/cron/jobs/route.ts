@@ -10,6 +10,14 @@ export const maxDuration = 120;
 
 const DEFAULT_BATCH = 3;
 
+// Jobs avec recherche web IA (Claude + web_search/web_fetch) : budget worker 45s.
+const LONG_JOB_TYPES = new Set([
+  "enrich.intel",
+  "procurement.research",
+  "networking.events",
+  "networking.associations",
+]);
+
 /**
  * Traite les jobs intelligence_jobs en attente (ingestion async, etc.).
  * Appeler depuis un cron Netlify ou après scheduled-refresh.
@@ -41,8 +49,8 @@ export async function POST(req: NextRequest) {
     const job = await claimNextJob();
     if (!job) break;
 
-    // enrich.intel (Claude) peut prendre jusqu'à 40s dans la background function.
-    const timeoutMs = job.jobType === "enrich.intel" ? 45_000 : 22_000;
+    // Jobs web-search (Claude + web tools) peuvent prendre jusqu'à 40s en background.
+    const timeoutMs = LONG_JOB_TYPES.has(job.jobType) ? 45_000 : 22_000;
     try {
       await Promise.race([
         runIntelligenceJob(job),
