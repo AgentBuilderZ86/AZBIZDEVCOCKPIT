@@ -18,6 +18,12 @@ const LONG_JOB_TYPES = new Set([
   "networking.associations",
 ]);
 
+// Jobs background-only : la recherche web (30-90s) dépasse la limite 26s de cette route.
+// Ils sont exécutés DANS leur Background Function dédiée (networking-background.mts) avec
+// le budget ~15 min. On les exclut donc ici pour que le worker 24s ne les réserve ni ne
+// les tue (sinon le filet horaire scheduled-jobs les ferait échouer à 24s).
+const BACKGROUND_ONLY_JOB_TYPES = ["networking.events", "networking.associations"];
+
 /**
  * Traite les jobs intelligence_jobs en attente (ingestion async, etc.).
  * Appeler depuis un cron Netlify ou après scheduled-refresh.
@@ -46,7 +52,7 @@ export async function POST(req: NextRequest) {
   }> = [];
 
   for (let i = 0; i < limit; i++) {
-    const job = await claimNextJob();
+    const job = await claimNextJob(undefined, BACKGROUND_ONLY_JOB_TYPES);
     if (!job) break;
 
     // Netlify TUE toute fonction serverless à ~26s (maxDuration ignoré). On borne donc

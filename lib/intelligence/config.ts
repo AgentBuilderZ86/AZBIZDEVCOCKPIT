@@ -1,4 +1,7 @@
-import "server-only";
+// NB : pas de `import "server-only"` ici — ce module est importé par networking-worker.ts,
+// lui-même bundlé dans une Netlify Background Function (esbuild/zisi). Or `server-only`
+// résout vers un module qui `throw` au build hors contexte react-server → crash. Ce fichier
+// ne tourne de toute façon que côté serveur (lecture process.env).
 
 /** Modèle Voyage par défaut (série 3, 1024 dim) — pas un secret. */
 const DEFAULT_EMBEDDINGS_MODEL = ["voyage", "3"].join("-");

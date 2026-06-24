@@ -1,4 +1,5 @@
-import "server-only";
+// Pas de `import "server-only"` : ce module est bundlé dans une Netlify Background Function
+// (networking-worker.ts) où `server-only` planterait au build (throw hors react-server).
 import postgres, { type Sql } from "postgres";
 import { isIntelligenceEnabled } from "./config";
 
