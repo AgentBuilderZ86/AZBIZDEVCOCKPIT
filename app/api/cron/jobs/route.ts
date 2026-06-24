@@ -49,8 +49,10 @@ export async function POST(req: NextRequest) {
     const job = await claimNextJob();
     if (!job) break;
 
-    // Jobs web-search (Claude + web tools) peuvent prendre jusqu'à 40s en background.
-    const timeoutMs = LONG_JOB_TYPES.has(job.jobType) ? 45_000 : 22_000;
+    // Netlify TUE toute fonction serverless à ~26s (maxDuration ignoré). On borne donc
+    // le worker SOUS cette limite : un job web-search trop long échoue PROPREMENT
+    // (failJob → statut 'failed' visible) au lieu d'être hard-killé et bloqué en 'processing'.
+    const timeoutMs = LONG_JOB_TYPES.has(job.jobType) ? 24_000 : 22_000;
     try {
       await Promise.race([
         runIntelligenceJob(job),
