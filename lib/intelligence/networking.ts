@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { integrations } from "../config";
 import { getDb } from "./db";
 import { isIntelligenceEnabled } from "./config";
+import { listComptes } from "../notion";
 
 /**
  * Zone Networking — recherche web IA d'événements locaux (Maroc) et d'associations
@@ -124,30 +125,76 @@ async function runWebSearch(
 // ─── Événements ──────────────────────────────────────────────────────────────
 
 const EVENTS_SYSTEM = `Tu es un analyste networking pour Sia Partners Maroc (cabinet de conseil).
-Tu identifies des événements professionnels MAJEURS et LOCAUX au Maroc, à venir, où un bizdev peut
-réseauter : salons, forums, conférences sectorielles, petits-déjeuners business, événements corporate
-organisés par les grands noms locaux (banques, télécoms, OCP, assurances, groupes industriels), galas.
-Utilise web_search et web_fetch (sites officiels, LinkedIn, presse économique marocaine).
-Ne fabrique jamais d'URL ni de date : mets null si absent. Privilégie les événements des 12 prochains mois.`;
+Tu identifies des événements professionnels MAJEURS et LOCAUX au Maroc, à venir dans les 12 prochains mois,
+où un bizdev peut réseauter : salons, forums, conférences sectorielles, petits-déjeuners business, galas,
+et événements corporate organisés par les grands groupes locaux (banques, télécoms, OCP, Holmarcom,
+assurances, groupes industriels).
+Cherche EN PROFONDEUR via web_search et web_fetch : sites officiels des organisateurs, LinkedIn, et presse
+économique marocaine (Médias24, L'Économiste, Challenge, Le Matin, Maroc Diplomatique, Le Desk, La Vie Éco)
+ainsi que les communiqués/agendas des fédérations et chambres.
+Ne fabrique jamais d'URL ni de date : mets null si absent.`;
 
-const EVENTS_INSTRUCTION = (horizonMonths: number, sector?: string | null) => `Trouve 8 à 15 événements
-professionnels à venir au Maroc${sector ? ` pertinents pour le secteur ${sector}` : ""} dans les ${horizonMonths} prochains mois.
+/** Rendez-vous emblématiques à couvrir impérativement si une édition à venir existe. */
+const EVENT_ANCHORS = [
+  "CFCIM (Chambre Française de Commerce et d'Industrie du Maroc) — forums, rencontres B2B, mois de l'entreprise",
+  "AUSIM — Assises de l'AUSIM et événements SI / digital",
+  "GITEX Africa Morocco (Marrakech)",
+  "Logismed — salon de la logistique (Casablanca)",
+  "SIAM — Salon International de l'Agriculture au Maroc (Meknès)",
+  "Salons / sommets data & IA au Maroc (AI events, Morocco AI/Data summits, Devoxx, conférences IA)",
+  "Forums sectoriels finance, banque, assurance, industrie, énergie, digital, santé",
+  "Grands sommets économiques tenus au Maroc (Africa CEO Forum édition Maroc, forums d'investissement)",
+];
+
+const EVENTS_INSTRUCTION = (
+  horizonMonths: number,
+  sector: string | null,
+  portfolio: string[]
+) => {
+  const portfolioLine = portfolio.length
+    ? `\nPiste AUSSI les événements organisés par ou autour de ces comptes de mon portefeuille (galas,
+journées clients, conférences IA/data, lancements, anniversaires) : ${portfolio.join(", ")}.`
+    : "";
+  return `Trouve 10 à 18 événements professionnels à venir au Maroc${sector ? ` pertinents pour le secteur ${sector}` : ""} dans les ${horizonMonths} prochains mois.
+Couvre IMPÉRATIVEMENT, si une édition à venir existe, ces rendez-vous emblématiques :
+${EVENT_ANCHORS.map((a) => `- ${a}`).join("\n")}${portfolioLine}
 Renvoie UNIQUEMENT du JSON :
 {"events":[{"name":"","eventType":"","organizer":"","city":"","location":"","eventDate":null,"endDate":null,"description":"","websiteUrl":null,"sourceUrl":null,"sector":"","audience":"","relevanceScore":5,"relevanceNotes":""}]}
 - "eventType" : salon | forum | conférence | petit-déjeuner | corporate | gala …
 - "eventDate"/"endDate" : format YYYY-MM-DD ou null.
 - "relevanceScore" : 1-10 (pertinence pour développer un réseau bizdev conseil/data/digital).
 - "relevanceNotes" : pourquoi y aller (1 phrase).`;
+};
+
+/** Noms des comptes du portefeuille (Notion), pour pister leurs événements corporate.
+ *  Borné à `limit` et tolérant aux pannes (timeout court : ne bloque jamais la recherche). */
+async function portfolioAccountNames(limit = 25): Promise<string[]> {
+  try {
+    const comptes = await Promise.race([
+      listComptes(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("notion_timeout")), 6000)
+      ),
+    ]);
+    return comptes
+      .map((c) => c.compte?.trim())
+      .filter((n): n is string => Boolean(n))
+      .slice(0, limit);
+  } catch {
+    return [];
+  }
+}
 
 export async function researchEvents(
   opts: { horizonMonths?: number; sector?: string | null } = {},
   jobId?: string
 ): Promise<{ inserted: number; error: string | null }> {
   const horizon = opts.horizonMonths ?? 12;
+  const portfolio = await portfolioAccountNames();
   const { parsed, error } = await runWebSearch(
     EVENTS_SYSTEM,
-    EVENTS_INSTRUCTION(horizon, opts.sector ?? null),
-    3500
+    EVENTS_INSTRUCTION(horizon, opts.sector ?? null, portfolio),
+    4000
   );
   if (error) return { inserted: 0, error };
   const list = (parsed?.events as Record<string, unknown>[] | undefined) ?? [];

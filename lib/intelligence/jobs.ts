@@ -95,9 +95,10 @@ export async function claimNextJob(
         SET status = 'processing', started_at = now()
         WHERE id = (
           SELECT id FROM intelligence_jobs
-          WHERE status = 'pending'
+          WHERE (status = 'pending'
+                 OR (status = 'processing' AND started_at < now() - interval '3 minutes'))
             AND job_type IN ${db(jobTypes)}
-          ORDER BY created_at ASC
+          ORDER BY (status = 'pending') DESC, created_at ASC
           FOR UPDATE SKIP LOCKED
           LIMIT 1
         )
@@ -122,7 +123,8 @@ export async function claimNextJob(
         WHERE id = (
           SELECT id FROM intelligence_jobs
           WHERE status = 'pending'
-          ORDER BY created_at ASC
+             OR (status = 'processing' AND started_at < now() - interval '3 minutes')
+          ORDER BY (status = 'pending') DESC, created_at ASC
           FOR UPDATE SKIP LOCKED
           LIMIT 1
         )
