@@ -57,11 +57,22 @@ export async function POST(req: NextRequest) {
       process.env.DEPLOY_PRIME_URL?.trim() ||
       process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
       "";
+    // Déclenchement FIABLE de la Background Function : on AWAIT la requête (le suffixe
+    // -background fait répondre Netlify 202 immédiatement, sans attendre la fin du job).
+    // Un void fetch fire-and-forget serait annulé dès que Netlify gèle cette route après
+    // sa réponse (cf. CLAUDE.md règle 5). Borné à 8 s pour ne jamais bloquer la route.
     if (base) {
-      void fetch(`${base}/api/networking-bg`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${process.env.CRON_SECRET ?? ""}` },
-      }).catch(() => {});
+      try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 8000);
+        await fetch(`${base}/api/networking-bg`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${process.env.CRON_SECRET ?? ""}` },
+          signal: ctrl.signal,
+        }).finally(() => clearTimeout(t));
+      } catch {
+        // Le filet horaire scheduled-jobs déclenchera /api/networking-bg en secours.
+      }
     }
 
     return NextResponse.json(

@@ -24,6 +24,17 @@ export default async function handler() {
   // eslint-disable-next-line no-console
   console.log(`[scheduled-jobs] ${res.status}: ${body.slice(0, 500)}`);
 
+  // Filet horaire pour les jobs networking ORPHELINS (déclenchement /research raté) :
+  // /api/cron/jobs les exclut (background-only), donc on relance leur Background Function.
+  try {
+    const nwRes = await fetch(`${base}/api/networking-bg`, { method: "POST", headers });
+    // eslint-disable-next-line no-console
+    console.log(`[scheduled-jobs] networking-bg ${nwRes.status}`);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error(`[scheduled-jobs] networking-bg error: ${String(err)}`);
+  }
+
   return new Response(body, { status: res.status });
 }
 

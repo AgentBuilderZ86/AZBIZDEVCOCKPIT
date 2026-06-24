@@ -1,4 +1,5 @@
-import "server-only";
+// Pas de `import "server-only"` : ce module est bundlé dans une Netlify Background Function
+// (networking-worker.ts) où `server-only` planterait au build (throw hors react-server).
 import { getDb } from "./db";
 import { isIntelligenceEnabled } from "./config";
 
@@ -69,67 +70,53 @@ export async function enqueueJob(
   return rows[0]?.id ?? null;
 }
 
-/** Réserve le prochain job pending (SKIP LOCKED). */
+/**
+ * Réserve le prochain job pending (SKIP LOCKED).
+ * - `jobTypes` : ne réserve QUE ces types (liste blanche).
+ * - `excludeJobTypes` : ne réserve JAMAIS ces types (liste noire), utile pour exclure
+ *   les jobs background-only (ex. networking.*) du worker /api/cron/jobs plafonné à 26 s.
+ * `jobTypes` a priorité si les deux sont fournis.
+ */
 export async function claimNextJob(
-  jobTypes?: string[]
+  jobTypes?: string[],
+  excludeJobTypes?: string[]
 ): Promise<IntelligenceJob | null> {
   if (!isIntelligenceEnabled()) return null;
 
   const db = getDb();
-  const rows = jobTypes?.length
-    ? await db<
-        {
-          id: string;
-          job_type: string;
-          idempotency_key: string | null;
-          payload: Record<string, unknown>;
-          status: JobStatus;
-          result: Record<string, unknown> | null;
-          error: string | null;
-          created_at: Date;
-          started_at: Date | null;
-          completed_at: Date | null;
-        }[]
-      >`
-        UPDATE intelligence_jobs
-        SET status = 'processing', started_at = now()
-        WHERE id = (
-          SELECT id FROM intelligence_jobs
-          WHERE (status = 'pending'
-                 OR (status = 'processing' AND started_at < now() - interval '3 minutes'))
-            AND job_type IN ${db(jobTypes)}
-          ORDER BY (status = 'pending') DESC, created_at ASC
-          FOR UPDATE SKIP LOCKED
-          LIMIT 1
-        )
-        RETURNING *
-      `
-    : await db<
-        {
-          id: string;
-          job_type: string;
-          idempotency_key: string | null;
-          payload: Record<string, unknown>;
-          status: JobStatus;
-          result: Record<string, unknown> | null;
-          error: string | null;
-          created_at: Date;
-          started_at: Date | null;
-          completed_at: Date | null;
-        }[]
-      >`
-        UPDATE intelligence_jobs
-        SET status = 'processing', started_at = now()
-        WHERE id = (
-          SELECT id FROM intelligence_jobs
-          WHERE status = 'pending'
-             OR (status = 'processing' AND started_at < now() - interval '3 minutes')
-          ORDER BY (status = 'pending') DESC, created_at ASC
-          FOR UPDATE SKIP LOCKED
-          LIMIT 1
-        )
-        RETURNING *
-      `;
+  const typeFilter = jobTypes?.length
+    ? db`AND job_type IN ${db(jobTypes)}`
+    : excludeJobTypes?.length
+      ? db`AND job_type NOT IN ${db(excludeJobTypes)}`
+      : db``;
+
+  const rows = await db<
+    {
+      id: string;
+      job_type: string;
+      idempotency_key: string | null;
+      payload: Record<string, unknown>;
+      status: JobStatus;
+      result: Record<string, unknown> | null;
+      error: string | null;
+      created_at: Date;
+      started_at: Date | null;
+      completed_at: Date | null;
+    }[]
+  >`
+    UPDATE intelligence_jobs
+    SET status = 'processing', started_at = now()
+    WHERE id = (
+      SELECT id FROM intelligence_jobs
+      WHERE (status = 'pending'
+             OR (status = 'processing' AND started_at < now() - interval '3 minutes'))
+        ${typeFilter}
+      ORDER BY (status = 'pending') DESC, created_at ASC
+      FOR UPDATE SKIP LOCKED
+      LIMIT 1
+    )
+    RETURNING *
+  `;
 
   const row = rows[0];
   return row ? mapJob(row) : null;

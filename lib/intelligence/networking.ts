@@ -1,4 +1,5 @@
-import "server-only";
+// Pas de marqueur server-only : ce module est bundlé dans une Netlify Background Function
+// (networking-worker.ts → networking-background.mts) où il planterait au build.
 import Anthropic from "@anthropic-ai/sdk";
 import { integrations } from "../config";
 import { getDb } from "./db";

@@ -1,27 +1,41 @@
 import type { Config } from "@netlify/functions";
+import { runNetworkingJobs } from "../../lib/intelligence/networking-worker";
 
 /**
- * Background Function — exécute la recherche web Networking (événements / associations)
- * sans limite de temps. Nommée *-background : Netlify retourne 202 immédiatement.
- * Délègue au worker Next.js (/api/cron/jobs).
+ * Background Function — EXÉCUTE la recherche web Networking (événements / associations)
+ * directement, avec le budget Netlify des background functions (~15 min).
+ *
+ * Avant : cette fonction re-déléguait à /api/cron/jobs (route Next.js plafonnée à 26 s),
+ * ce qui tuait systématiquement la recherche web (30-90 s) à 24 s. Désormais le travail
+ * tourne ICI, dans le bon contexte de temps. Suffixe -background → Netlify répond 202
+ * immédiatement au déclencheur (la route /research n'attend pas la fin du job).
  */
-export default async function handler() {
-  const base = process.env.URL ?? process.env.DEPLOY_PRIME_URL ?? "";
-  const secret = process.env.CRON_SECRET ?? "";
-
-  if (!base) {
-    console.error("[networking-background] URL absente (URL/DEPLOY_PRIME_URL).");
-    return new Response("URL indisponible.", { status: 500 });
+export default async function handler(req: Request): Promise<Response> {
+  // Auth optionnelle : si CRON_SECRET est défini, on exige le bearer (le déclencheur
+  // /api/networking/research l'envoie). Sans secret configuré, on laisse passer.
+  const secret = process.env.CRON_SECRET?.trim();
+  if (secret) {
+    const auth = req.headers.get("authorization") ?? "";
+    if (auth !== `Bearer ${secret}`) {
+      return new Response("Unauthorized", { status: 401 });
+    }
   }
 
-  const res = await fetch(`${base}/api/cron/jobs?limit=1`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${secret}` },
-  });
-
-  const body = await res.text();
-  console.log(`[networking-background] cron status=${res.status} body=${body.slice(0, 300)}`);
-  return new Response(body, { status: res.status });
+  try {
+    const summary = await runNetworkingJobs(2);
+    console.log(`[networking-background] ${JSON.stringify(summary)}`);
+    return new Response(JSON.stringify(summary), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Erreur inconnue.";
+    console.error(`[networking-background] ${message}`);
+    return new Response(JSON.stringify({ error: message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 }
 
 export const config: Config = {

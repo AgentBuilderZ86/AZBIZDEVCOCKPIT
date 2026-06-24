@@ -96,8 +96,10 @@ export function NetworkingClient({ intelligenceEnabled, initialEvents, initialAs
     }
   }
 
-  async function pollJob(jobId: string): Promise<void> {
-    const MAX = 18; // 18 × 3s ≈ 54s
+  /** Poll le job. Retourne true si "done", false si encore en cours après la fenêtre
+   *  (la recherche web continue alors en arrière-plan). Lève uniquement si "failed". */
+  async function pollJob(jobId: string): Promise<boolean> {
+    const MAX = 40; // 40 × 3s ≈ 120s (la recherche web peut prendre 30-90s)
     for (let i = 0; i < MAX; i++) {
       await new Promise((r) => setTimeout(r, 3000));
       try {
@@ -107,12 +109,12 @@ export function NetworkingClient({ intelligenceEnabled, initialEvents, initialAs
         const job = data.job as { status: string; error?: string } | undefined;
         if (!job) continue;
         if (job.status === "failed") throw new Error(String(job.error ?? "Recherche échouée."));
-        if (job.status === "done") return;
+        if (job.status === "done") return true;
       } catch (err) {
         if (err instanceof Error && err.message.includes("échouée")) throw err;
       }
     }
-    throw new Error("Délai dépassé. Réessayez dans quelques instants.");
+    return false; // pas encore terminé — le job poursuit côté serveur
   }
 
   async function research(kind: "events" | "associations") {
@@ -126,13 +128,18 @@ export function NetworkingClient({ intelligenceEnabled, initialEvents, initialAs
       const data = await parseApiJson(res);
       if (!res.ok) throw new Error(String(data.error ?? "Échec du lancement."));
       if (data.queued && data.jobId) {
-        await pollJob(String(data.jobId));
+        const done = await pollJob(String(data.jobId));
         await refresh();
-        toast.success(kind === "events" ? "Événements actualisés." : "Associations actualisées.");
+        if (done) {
+          toast.success(kind === "events" ? "Événements actualisés." : "Associations actualisées.");
+        } else {
+          toast.info("Recherche en cours en arrière-plan — actualisez dans une minute.");
+        }
       } else {
         throw new Error(String(data.error ?? "Réponse inattendue."));
       }
     } catch (err) {
+      await refresh();
       toast.error(err instanceof Error ? err.message : "Erreur recherche.");
     } finally {
       setResearching(null);
