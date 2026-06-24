@@ -3,7 +3,6 @@ import Anthropic from "@anthropic-ai/sdk";
 import { integrations } from "../config";
 import { getDb } from "./db";
 import { isIntelligenceEnabled } from "./config";
-import { listComptes } from "../notion";
 
 /**
  * Zone Networking — recherche web IA d'événements locaux (Maroc) et d'associations
@@ -146,54 +145,25 @@ const EVENT_ANCHORS = [
   "Grands sommets économiques tenus au Maroc (Africa CEO Forum édition Maroc, forums d'investissement)",
 ];
 
-const EVENTS_INSTRUCTION = (
-  horizonMonths: number,
-  sector: string | null,
-  portfolio: string[]
-) => {
-  const portfolioLine = portfolio.length
-    ? `\nPiste AUSSI les événements organisés par ou autour de ces comptes de mon portefeuille (galas,
-journées clients, conférences IA/data, lancements, anniversaires) : ${portfolio.join(", ")}.`
-    : "";
-  return `Trouve 10 à 18 événements professionnels à venir au Maroc${sector ? ` pertinents pour le secteur ${sector}` : ""} dans les ${horizonMonths} prochains mois.
+const EVENTS_INSTRUCTION = (horizonMonths: number, sector: string | null) =>
+  `Trouve 10 à 18 événements professionnels à venir au Maroc${sector ? ` pertinents pour le secteur ${sector}` : ""} dans les ${horizonMonths} prochains mois.
 Couvre IMPÉRATIVEMENT, si une édition à venir existe, ces rendez-vous emblématiques :
-${EVENT_ANCHORS.map((a) => `- ${a}`).join("\n")}${portfolioLine}
+${EVENT_ANCHORS.map((a) => `- ${a}`).join("\n")}
 Renvoie UNIQUEMENT du JSON :
 {"events":[{"name":"","eventType":"","organizer":"","city":"","location":"","eventDate":null,"endDate":null,"description":"","websiteUrl":null,"sourceUrl":null,"sector":"","audience":"","relevanceScore":5,"relevanceNotes":""}]}
 - "eventType" : salon | forum | conférence | petit-déjeuner | corporate | gala …
 - "eventDate"/"endDate" : format YYYY-MM-DD ou null.
 - "relevanceScore" : 1-10 (pertinence pour développer un réseau bizdev conseil/data/digital).
 - "relevanceNotes" : pourquoi y aller (1 phrase).`;
-};
-
-/** Noms des comptes du portefeuille (Notion), pour pister leurs événements corporate.
- *  Borné à `limit` et tolérant aux pannes (timeout court : ne bloque jamais la recherche). */
-async function portfolioAccountNames(limit = 25): Promise<string[]> {
-  try {
-    const comptes = await Promise.race([
-      listComptes(),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("notion_timeout")), 6000)
-      ),
-    ]);
-    return comptes
-      .map((c) => c.compte?.trim())
-      .filter((n): n is string => Boolean(n))
-      .slice(0, limit);
-  } catch {
-    return [];
-  }
-}
 
 export async function researchEvents(
   opts: { horizonMonths?: number; sector?: string | null } = {},
   jobId?: string
 ): Promise<{ inserted: number; error: string | null }> {
   const horizon = opts.horizonMonths ?? 12;
-  const portfolio = await portfolioAccountNames();
   const { parsed, error } = await runWebSearch(
     EVENTS_SYSTEM,
-    EVENTS_INSTRUCTION(horizon, opts.sector ?? null, portfolio),
+    EVENTS_INSTRUCTION(horizon, opts.sector ?? null),
     4000
   );
   if (error) return { inserted: 0, error };
