@@ -86,8 +86,9 @@ function asDate(v: unknown): string | null {
 // Bornes de temps : une Background Function Netlify est TUÉE à 15 min. On garde une marge
 // large pour que la recherche se termine (et marque le job done/failed) bien avant.
 const MAX_ITERATIONS = 5; // tours agentiques (pause_turn) max
-const WALL_CLOCK_DEADLINE_MS = 7 * 60 * 1000; // 7 min de budget global pour la recherche
-const PER_CALL_TIMEOUT_MS = 110_000; // 110 s max par appel Claude (évite un hang infini)
+const WALL_CLOCK_DEADLINE_MS = 9 * 60 * 1000; // 9 min de budget global (< garde-fou worker 10 min)
+const PER_CALL_TIMEOUT_MS = 240_000; // 240 s max par appel Claude — un tour web_search peut être long ;
+// 110 s coupait des tours légitimes (« Request timed out »). Le deadline global borne le total.
 
 async function runWebSearch(
   system: string,
@@ -182,10 +183,13 @@ Tu identifies des événements professionnels MAJEURS et LOCAUX au Maroc, à ven
 où un bizdev peut réseauter : salons, forums, conférences sectorielles, petits-déjeuners business, galas,
 et événements corporate organisés par les grands groupes locaux (banques, télécoms, OCP, Holmarcom,
 assurances, groupes industriels).
-MÉTHODE : utilise web_fetch sur les sites de référence fournis pour en extraire les événements publiés,
-puis complète avec web_search (sites officiels des organisateurs, LinkedIn, presse éco : Médias24,
-L'Économiste, Challenge, Le Matin, Le Desk, La Vie Éco) et les agendas des fédérations et chambres.
-Si un web_fetch échoue (403/page vide), bascule sur web_search pour le même site/événement.
+MÉTHODE (vitesse = priorité, budget temps limité) :
+- Utilise SURTOUT web_search (rapide) : c'est ton outil principal. Les sites de référence fournis
+  servent de PISTES de requêtes (cherche leur nom + "événements 2026 Maroc"), pas de pages à télécharger.
+- web_fetch est LENT et peut faire échouer la requête (timeout) : utilise-le au MAXIMUM 2 fois,
+  uniquement sur une page d'agenda vraiment cruciale. En cas de doute, reste sur web_search.
+- Sources presse/officielles utiles : Médias24, L'Économiste, Challenge, Le Matin, Le Desk, La Vie Éco,
+  CFCIM, GITEX Africa, AUSIM, CGEM, et les agendas des fédérations et chambres.
 Ne fabrique jamais d'URL ni de date : mets null si absent. Privilégie les événements DATÉS et à venir.`;
 
 /** Rendez-vous emblématiques à couvrir impérativement si une édition à venir existe. */
@@ -204,7 +208,7 @@ const EVENTS_INSTRUCTION = (horizonMonths: number, sector: string | null) =>
   `Trouve 12 à 18 événements professionnels à venir au Maroc${sector ? ` pertinents pour le secteur ${sector}` : ""} dans les ${horizonMonths} prochains mois.
 
 MÉTHODE (sois EFFICACE, budget temps limité) :
-- Privilégie web_search (rapide). N'utilise web_fetch que sur 3 à 5 pages vraiment utiles — n'ouvre PAS tous les sites.
+- Utilise SURTOUT web_search (rapide). web_fetch au maximum 2 fois (lent, risque de timeout) — n'ouvre PAS les sites en masse.
 - Sources de référence à exploiter en priorité (via recherche ou fetch ciblé) :
 ${EVENT_SOURCES.slice(0, 10).map((s) => `  • ${s.name} : ${s.url}`).join("\n")}
 - Couvre, si une édition à venir existe, ces rendez-vous emblématiques :
