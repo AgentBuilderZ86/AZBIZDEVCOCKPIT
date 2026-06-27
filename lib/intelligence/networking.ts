@@ -94,7 +94,7 @@ async function runWebSearch(
   const messages: Anthropic.MessageParam[] = [{ role: "user", content: instruction }];
   let final: Anthropic.Message | null = null;
   try {
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 8; i++) {
       const res = await getClient().messages.create({
         model: "claude-sonnet-4-6",
         max_tokens: maxTokens,
@@ -124,15 +124,44 @@ async function runWebSearch(
 
 // ─── Événements ──────────────────────────────────────────────────────────────
 
+/**
+ * Répertoire de sites de référence publiant des événements pros / networking au Maroc.
+ * Le modèle doit web_fetch ces pages EN PRIORITÉ et en extraire chaque événement à venir,
+ * puis compléter via web_search. Curé manuellement (agrégateurs, officiels, presse éco).
+ */
+const EVENT_SOURCES: { name: string; url: string }[] = [
+  // Agrégateurs / calendriers d'événements
+  { name: "10Times — événements Maroc", url: "https://10times.com/morocco" },
+  { name: "EventsEye — salons Maroc", url: "https://www.eventseye.com/fairs/c1_trade-shows_morocco.html" },
+  { name: "Expo Assist — calendrier Maroc", url: "https://expoassist.net/events/country/morocco" },
+  { name: "All Conference Alert — Maroc", url: "https://www.allconferencealert.com/morocco" },
+  { name: "Eventbrite — Business Maroc", url: "https://www.eventbrite.com/b/morocco/business/" },
+  { name: "Buzzevents — calendrier salons", url: "https://buzzevents.co/" },
+  { name: "ExpoMaroc — salons", url: "https://www.expomaroc.ma/" },
+  { name: "RimcomGroup — calendrier salons B2B 2026", url: "https://rimcomgroup.com/calendrier-salons-professionnels-maroc-2026/" },
+  // Officiels / organisateurs
+  { name: "CFCIM — salons & événements", url: "https://www.cfcim.org/salons-evenements/" },
+  { name: "GITEX Africa Morocco", url: "https://www.gitexafrica.com/" },
+  { name: "AUSIM — association des SI", url: "https://ausim.ma/" },
+  { name: "CGEM — patronat (actualités/événements)", url: "https://www.cgem.ma/fr/evenements" },
+  { name: "SIAM — Salon de l'agriculture", url: "https://www.salon-agriculture.ma/" },
+  // Presse économique (agendas & annonces d'événements)
+  { name: "Médias24", url: "https://medias24.com/" },
+  { name: "L'Économiste", url: "https://www.leconomiste.com/" },
+  { name: "La Vie éco", url: "https://www.lavieeco.com/" },
+  { name: "Challenge.ma", url: "https://www.challenge.ma/" },
+];
+
 const EVENTS_SYSTEM = `Tu es un analyste networking pour Sia Partners Maroc (cabinet de conseil).
 Tu identifies des événements professionnels MAJEURS et LOCAUX au Maroc, à venir dans les 12 prochains mois,
 où un bizdev peut réseauter : salons, forums, conférences sectorielles, petits-déjeuners business, galas,
 et événements corporate organisés par les grands groupes locaux (banques, télécoms, OCP, Holmarcom,
 assurances, groupes industriels).
-Cherche EN PROFONDEUR via web_search et web_fetch : sites officiels des organisateurs, LinkedIn, et presse
-économique marocaine (Médias24, L'Économiste, Challenge, Le Matin, Maroc Diplomatique, Le Desk, La Vie Éco)
-ainsi que les communiqués/agendas des fédérations et chambres.
-Ne fabrique jamais d'URL ni de date : mets null si absent.`;
+MÉTHODE : utilise web_fetch sur les sites de référence fournis pour en extraire les événements publiés,
+puis complète avec web_search (sites officiels des organisateurs, LinkedIn, presse éco : Médias24,
+L'Économiste, Challenge, Le Matin, Le Desk, La Vie Éco) et les agendas des fédérations et chambres.
+Si un web_fetch échoue (403/page vide), bascule sur web_search pour le même site/événement.
+Ne fabrique jamais d'URL ni de date : mets null si absent. Privilégie les événements DATÉS et à venir.`;
 
 /** Rendez-vous emblématiques à couvrir impérativement si une édition à venir existe. */
 const EVENT_ANCHORS = [
@@ -147,9 +176,16 @@ const EVENT_ANCHORS = [
 ];
 
 const EVENTS_INSTRUCTION = (horizonMonths: number, sector: string | null) =>
-  `Trouve 10 à 18 événements professionnels à venir au Maroc${sector ? ` pertinents pour le secteur ${sector}` : ""} dans les ${horizonMonths} prochains mois.
-Couvre IMPÉRATIVEMENT, si une édition à venir existe, ces rendez-vous emblématiques :
+  `Trouve le MAXIMUM d'événements professionnels à venir au Maroc${sector ? ` pertinents pour le secteur ${sector}` : ""} dans les ${horizonMonths} prochains mois (vise 15 à 25).
+
+ÉTAPE 1 — Parcours ces sites de référence (web_fetch, puis web_search si le fetch échoue) et extrais CHAQUE événement à venir qui y est publié :
+${EVENT_SOURCES.map((s) => `- ${s.name} : ${s.url}`).join("\n")}
+
+ÉTAPE 2 — Couvre IMPÉRATIVEMENT, si une édition à venir existe, ces rendez-vous emblématiques :
 ${EVENT_ANCHORS.map((a) => `- ${a}`).join("\n")}
+
+ÉTAPE 3 — Dédoublonne par nom + date et ne garde que les événements au Maroc, datés de préférence.
+
 Renvoie UNIQUEMENT du JSON :
 {"events":[{"name":"","eventType":"","organizer":"","city":"","location":"","eventDate":null,"endDate":null,"description":"","websiteUrl":null,"sourceUrl":null,"sector":"","audience":"","relevanceScore":5,"relevanceNotes":""}]}
 - "eventType" : salon | forum | conférence | petit-déjeuner | corporate | gala …
@@ -165,7 +201,7 @@ export async function researchEvents(
   const { parsed, error } = await runWebSearch(
     EVENTS_SYSTEM,
     EVENTS_INSTRUCTION(horizon, opts.sector ?? null),
-    4000
+    8000
   );
   if (error) return { inserted: 0, error };
   const list = (parsed?.events as Record<string, unknown>[] | undefined) ?? [];
