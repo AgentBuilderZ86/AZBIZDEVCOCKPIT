@@ -66,9 +66,23 @@ export async function enqueueJob(
     if (existing[0]) return existing[0].id;
   }
 
+  // La colonne idempotency_key porte une contrainte UNIQUE : un nouvel INSERT avec la
+  // clé d'un job 'failed' existant violerait la contrainte. On fait donc un upsert qui
+  // RECYCLE la ligne échouée (repasse en 'pending', réinitialise erreur/résultat/dates).
+  // Le SELECT ci-dessus a déjà court-circuité les jobs non-'failed' (pending/processing/done),
+  // donc le WHERE du DO UPDATE garantit qu'on ne réveille jamais un job déjà actif/terminé.
   const rows = await db<{ id: string }[]>`
     INSERT INTO intelligence_jobs (job_type, idempotency_key, payload)
     VALUES (${jobType}, ${idempotencyKey ?? null}, ${db.json(payload as Record<string, never>)})
+    ON CONFLICT (idempotency_key) DO UPDATE
+      SET status = 'pending',
+          payload = EXCLUDED.payload,
+          error = NULL,
+          result = NULL,
+          started_at = NULL,
+          completed_at = NULL,
+          created_at = now()
+      WHERE intelligence_jobs.status = 'failed'
     RETURNING id
   `;
   return rows[0]?.id ?? null;
