@@ -54,9 +54,13 @@ export async function enqueueJob(
 
   const db = getDb();
   if (idempotencyKey) {
+    // On NE déduplique PAS contre un job 'failed' : un échec (clé API, timeout, etc.)
+    // doit pouvoir être relancé le même jour avec la même clé. Sinon la clé d'idempotence
+    // (ex. networking.events:all:JJ) verrouillerait l'utilisateur sur l'ancien job échoué.
     const existing = await db<{ id: string }[]>`
       SELECT id FROM intelligence_jobs
       WHERE idempotency_key = ${idempotencyKey}
+        AND status <> 'failed'
       LIMIT 1
     `;
     if (existing[0]) return existing[0].id;
