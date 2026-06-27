@@ -61,7 +61,9 @@ Renvoie UNIQUEMENT du JSON :
 
   for (let i = 0; i < 3; i++) {
     const response = await getClient().messages.create({
-      model: "claude-sonnet-4-6",
+      // Haiku : la veille (résumé/extraction d'actus) est une tâche à faible enjeu —
+      // ~3-5× moins cher que Sonnet. Déclenchée uniquement à la demande (clic compte).
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 2048,
       system: SYSTEM,
       tools,
