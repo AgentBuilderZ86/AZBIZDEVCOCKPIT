@@ -36,6 +36,20 @@ async function runOne(
   return { inserted: result.inserted, warning: result.error };
 }
 
+// Garde-fou dur : une Background Function Netlify est tuée à 15 min. Si un job dépasse
+// ce délai, on le marque 'failed' (au lieu de le laisser coincé en 'processing' et
+// re-déclenché en boucle par le cron horaire — ce qui brûle des crédits API).
+const JOB_HARD_TIMEOUT_MS = 10 * 60 * 1000;
+
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Délai d'exécution dépassé (garde-fou worker).")), ms)
+    ),
+  ]);
+}
+
 export interface NetworkingRunSummary {
   processed: number;
   jobs: Array<{
@@ -60,7 +74,7 @@ export async function runNetworkingJobs(max = 2): Promise<NetworkingRunSummary> 
     if (!job) break;
 
     try {
-      const { inserted, warning } = await runOne(job);
+      const { inserted, warning } = await withTimeout(runOne(job), JOB_HARD_TIMEOUT_MS);
       await completeJob(job.id, { inserted, warning });
       jobs.push({ id: job.id, jobType: job.jobType, status: "done", inserted });
     } catch (err) {

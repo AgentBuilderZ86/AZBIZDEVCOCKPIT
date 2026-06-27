@@ -83,6 +83,12 @@ function asDate(v: unknown): string | null {
   return m ? m[0] : null;
 }
 
+// Bornes de temps : une Background Function Netlify est TUÉE à 15 min. On garde une marge
+// large pour que la recherche se termine (et marque le job done/failed) bien avant.
+const MAX_ITERATIONS = 5; // tours agentiques (pause_turn) max
+const WALL_CLOCK_DEADLINE_MS = 7 * 60 * 1000; // 7 min de budget global pour la recherche
+const PER_CALL_TIMEOUT_MS = 110_000; // 110 s max par appel Claude (évite un hang infini)
+
 async function runWebSearch(
   system: string,
   instruction: string,
@@ -92,16 +98,23 @@ async function runWebSearch(
     return { parsed: null, error: "Clé ANTHROPIC_API_KEY absente." };
   }
   const messages: Anthropic.MessageParam[] = [{ role: "user", content: instruction }];
+  const start = Date.now();
   let final: Anthropic.Message | null = null;
+  let last: Anthropic.Message | null = null;
   try {
-    for (let i = 0; i < 8; i++) {
-      const res = await getClient().messages.create({
-        model: "claude-sonnet-4-6",
-        max_tokens: maxTokens,
-        system,
-        tools: TOOLS,
-        messages,
-      });
+    for (let i = 0; i < MAX_ITERATIONS; i++) {
+      if (Date.now() - start > WALL_CLOCK_DEADLINE_MS) break; // garde-fou temps
+      const res = await getClient().messages.create(
+        {
+          model: "claude-sonnet-4-6",
+          max_tokens: maxTokens,
+          system,
+          tools: TOOLS,
+          messages,
+        },
+        { timeout: PER_CALL_TIMEOUT_MS, maxRetries: 1 }
+      );
+      last = res;
       if (res.stop_reason === "pause_turn") {
         messages.push({ role: "assistant", content: res.content });
         continue;
@@ -113,13 +126,25 @@ async function runWebSearch(
     const msg = err instanceof Error ? err.message : "erreur inconnue";
     return { parsed: null, error: `Recherche web indisponible : ${msg}` };
   }
-  if (!final) return { parsed: null, error: "Recherche : trop d'itérations." };
 
-  const text = final.content
+  // Si on a coupé sur le deadline, on tente d'exploiter la dernière réponse partielle.
+  const chosen = final ?? last;
+  if (!chosen) return { parsed: null, error: "Recherche : aucune réponse." };
+
+  const text = chosen.content
     .filter((b): b is Anthropic.TextBlock => b.type === "text")
     .map((b) => b.text)
     .join("\n");
-  return { parsed: extractJson(text), error: null };
+  const parsed = extractJson(text);
+  if (!parsed) {
+    return {
+      parsed: null,
+      error: final
+        ? "Aucun JSON exploitable dans la réponse IA."
+        : "Recherche interrompue (délai dépassé) sans résultat exploitable.",
+    };
+  }
+  return { parsed, error: null };
 }
 
 // ─── Événements ──────────────────────────────────────────────────────────────
@@ -176,15 +201,16 @@ const EVENT_ANCHORS = [
 ];
 
 const EVENTS_INSTRUCTION = (horizonMonths: number, sector: string | null) =>
-  `Trouve le MAXIMUM d'événements professionnels à venir au Maroc${sector ? ` pertinents pour le secteur ${sector}` : ""} dans les ${horizonMonths} prochains mois (vise 15 à 25).
+  `Trouve 12 à 18 événements professionnels à venir au Maroc${sector ? ` pertinents pour le secteur ${sector}` : ""} dans les ${horizonMonths} prochains mois.
 
-ÉTAPE 1 — Parcours ces sites de référence (web_fetch, puis web_search si le fetch échoue) et extrais CHAQUE événement à venir qui y est publié :
-${EVENT_SOURCES.map((s) => `- ${s.name} : ${s.url}`).join("\n")}
-
-ÉTAPE 2 — Couvre IMPÉRATIVEMENT, si une édition à venir existe, ces rendez-vous emblématiques :
-${EVENT_ANCHORS.map((a) => `- ${a}`).join("\n")}
-
-ÉTAPE 3 — Dédoublonne par nom + date et ne garde que les événements au Maroc, datés de préférence.
+MÉTHODE (sois EFFICACE, budget temps limité) :
+- Privilégie web_search (rapide). N'utilise web_fetch que sur 3 à 5 pages vraiment utiles — n'ouvre PAS tous les sites.
+- Sources de référence à exploiter en priorité (via recherche ou fetch ciblé) :
+${EVENT_SOURCES.slice(0, 10).map((s) => `  • ${s.name} : ${s.url}`).join("\n")}
+- Couvre, si une édition à venir existe, ces rendez-vous emblématiques :
+${EVENT_ANCHORS.map((a) => `  • ${a}`).join("\n")}
+- Dédoublonne par nom + date ; garde uniquement le Maroc, datés de préférence.
+- Dès que tu as ~12-18 événements, STOPPE la recherche et renvoie le JSON (ne sur-cherche pas).
 
 Renvoie UNIQUEMENT du JSON :
 {"events":[{"name":"","eventType":"","organizer":"","city":"","location":"","eventDate":null,"endDate":null,"description":"","websiteUrl":null,"sourceUrl":null,"sector":"","audience":"","relevanceScore":5,"relevanceNotes":""}]}
@@ -201,7 +227,7 @@ export async function researchEvents(
   const { parsed, error } = await runWebSearch(
     EVENTS_SYSTEM,
     EVENTS_INSTRUCTION(horizon, opts.sector ?? null),
-    8000
+    6000
   );
   if (error) return { inserted: 0, error };
   const list = (parsed?.events as Record<string, unknown>[] | undefined) ?? [];
