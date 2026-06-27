@@ -60,6 +60,15 @@ interface NetworkingAssociation {
   status: string;
 }
 
+interface JobDiag {
+  status: string; // pending | processing | done | failed
+  inserted: number | null;
+  warning: string | null;
+  error: string | null;
+  createdAt: string;
+  completedAt: string | null;
+}
+
 interface Props {
   intelligenceEnabled: boolean;
   initialEvents: NetworkingEvent[];
@@ -73,6 +82,13 @@ export function NetworkingClient({ intelligenceEnabled, initialEvents, initialAs
   const [associations, setAssociations] = React.useState(initialAssociations);
   const [sector, setSector] = React.useState<string>(ALL);
   const [researching, setResearching] = React.useState<"events" | "associations" | null>(null);
+  const [diag, setDiag] = React.useState<JobDiag | null>(null);
+
+  // Charge le diagnostic du dernier job au montage (pour voir l'état même sans relancer).
+  React.useEffect(() => {
+    void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const sectorFilter = sector === ALL ? null : sector;
 
@@ -90,6 +106,8 @@ export function NetworkingClient({ intelligenceEnabled, initialEvents, initialAs
       if (res.ok) {
         setEvents((data.events as NetworkingEvent[]) ?? []);
         setAssociations((data.associations as NetworkingAssociation[]) ?? []);
+        const d = data.diagnostics as { events?: JobDiag | null } | undefined;
+        setDiag(d?.events ?? null);
       }
     } catch {
       /* silencieux */
@@ -208,6 +226,8 @@ export function NetworkingClient({ intelligenceEnabled, initialEvents, initialAs
           </SelectContent>
         </Select>
       </div>
+
+      <DiagnosticBanner diag={diag} />
 
       {/* Événements */}
       <TabsContent value="events" className="space-y-3">
@@ -385,6 +405,44 @@ function RowActions({
       <Button size="sm" variant="ghost" className="h-7 px-2 text-muted-foreground" onClick={onDismiss} title="Ignorer">
         <X className="h-3.5 w-3.5" />
       </Button>
+    </div>
+  );
+}
+
+/** Bandeau de diagnostic de la dernière recherche d'événements (statut + cause d'un 0 résultat). */
+function DiagnosticBanner({ diag }: { diag: JobDiag | null }) {
+  if (!diag) return null;
+
+  const map: Record<string, { label: string; cls: string }> = {
+    pending: { label: "En file d'attente", cls: "border-slate-300 bg-slate-50 text-slate-700" },
+    processing: { label: "Recherche en cours…", cls: "border-blue-300 bg-blue-50 text-blue-800" },
+    done: { label: "Terminée", cls: "border-emerald-300 bg-emerald-50 text-emerald-800" },
+    failed: { label: "Échec", cls: "border-red-300 bg-red-50 text-red-800" },
+  };
+  const s = map[diag.status] ?? { label: diag.status, cls: "border-slate-300 bg-slate-50 text-slate-700" };
+  const when = diag.completedAt ?? diag.createdAt;
+
+  return (
+    <div className={`rounded-lg border px-3 py-2 text-xs ${s.cls}`}>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="font-semibold">Dernière recherche : {s.label}</span>
+        {diag.status === "done" && (
+          <span>{diag.inserted ?? 0} nouvel(s) événement(s) inséré(s)</span>
+        )}
+        {when && <span className="opacity-70">{formatDate(when)}</span>}
+      </div>
+      {diag.error && (
+        <p className="mt-1 font-medium">Erreur : {diag.error}</p>
+      )}
+      {!diag.error && diag.warning && (
+        <p className="mt-1 opacity-90">Note : {diag.warning}</p>
+      )}
+      {diag.status === "done" && (diag.inserted ?? 0) === 0 && !diag.error && !diag.warning && (
+        <p className="mt-1 opacity-90">
+          La recherche a abouti mais n&apos;a remonté aucun événement structuré (réponse IA non exploitable
+          ou aucun résultat). Réessayez ou affinez le filtre secteur.
+        </p>
+      )}
     </div>
   );
 }
